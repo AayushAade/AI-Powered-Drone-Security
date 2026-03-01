@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.dark-map .leaflet-layer,
+.dark-map .leaflet-control-zoom-in,
+.dark-map .leaflet-control-zoom-out,
+.dark-map .leaflet-control-attribution {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
