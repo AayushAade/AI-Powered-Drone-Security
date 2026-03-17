@@ -2,7 +2,7 @@ import time
 import requests
 
 NODE_API = "http://localhost:3000/api/telemetry"
-IP_WEBCAM_URL = "http://100.97.203.72:8080/sensors.json"
+IP_WEBCAM_URL = "http://192.0.0.4:8080/sensors.json"
 
 def get_fallback_location():
     """

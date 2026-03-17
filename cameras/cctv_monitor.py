@@ -48,7 +48,7 @@ def run_cctv_monitor():
     print("Loading YOLOv11 POSE Model for CCTV...")
     model = YOLO('../project_assets/yolo11n-pose.pt') 
     
-    video_url = "http://100.97.203.72:8080/video" 
+    video_url = "http://192.0.0.4:8080/video" 
     print(f"Connecting CCTV to Mobile Hotspot Camera at {video_url}...")
     
     cap = cv2.VideoCapture(video_url)
