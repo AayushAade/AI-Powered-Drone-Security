@@ -75,15 +75,15 @@ let latestDroneFrame = null; // Store latest drone video frame for AI analysis
 
 // Base stations for drones (simulated police/drone stations across Pune)
 const DRONE_BASES = {
-    'D-Alpha': { lat: 18.4590, lng: 73.8577 },  // Kothrud Station
-    'D-Bravo': { lat: 18.5350, lng: 73.8800 },  // Shivajinagar Station
-    'D-Charlie': { lat: 18.4850, lng: 73.8200 }, // Hinjawadi Station
+    'D-Alpha': { lat: 18.4575, lng: 73.8510 },  // Bharati Vidyapeeth Station
+    'D-Bravo': { lat: 18.4580, lng: 73.8520 },  // Secondary Base
+    'D-Charlie': { lat: 18.4560, lng: 73.8530 }, // Tertiary Base (Moved slightly east to avoid hospital zone)
 };
 
 let drones = [
-    { id: 'D-Alpha', status: 'IDLE', lat: 18.4590, lng: 73.8577, battery: 100, target: null, eta: null, sceneTimer: null },
-    { id: 'D-Bravo', status: 'IDLE', lat: 18.5350, lng: 73.8800, battery: 100, target: null, eta: null, sceneTimer: null },
-    { id: 'D-Charlie', status: 'IDLE', lat: 18.4850, lng: 73.8200, battery: 100, target: null, eta: null, sceneTimer: null },
+    { id: 'D-Alpha', status: 'IDLE', lat: 18.4575, lng: 73.8510, battery: 100, target: null, eta: null, sceneTimer: null },
+    { id: 'D-Bravo', status: 'IDLE', lat: 18.4580, lng: 73.8520, battery: 100, target: null, eta: null, sceneTimer: null },
+    { id: 'D-Charlie', status: 'IDLE', lat: 18.4560, lng: 73.8530, battery: 100, target: null, eta: null, sceneTimer: null },
 ];
 
 const DRONE_SPEED_MPS = 20; // Simulated speed (meters per second)
@@ -92,6 +92,13 @@ const BATTERY_DRAIN_PER_TICK = 0.05;
 const MIN_DISPATCH_BATTERY = 20; // Don't dispatch drones below this %
 const SCENE_DURATION_SEC = 30;    // Time on scene before returning to base
 const BATTERY_RECHARGE_PER_TICK = 0.15; // Recharge rate when idle at base
+
+// --- No-Fly Zones (Keep in sync with frontend) ---
+const NO_FLY_ZONES = [
+    { name: 'Bharati Hospital', lat: 18.4572, lng: 73.8492, radius: 150 },
+    { name: 'Sai Sneh Hospital', lat: 18.4485, lng: 73.8545, radius: 100 },
+    { name: 'Siddhi Hospital', lat: 18.4682, lng: 73.8560, radius: 100 },
+];
 
 // --- API Endpoints ---
 
@@ -156,9 +163,9 @@ app.get('/api/state', (req, res) => {
 
 app.post('/api/reset', (req, res) => {
     drones = [
-        { id: 'D-Alpha', status: 'IDLE', lat: 18.4590, lng: 73.8577, battery: 100, target: null, eta: null, sceneTimer: null },
-        { id: 'D-Bravo', status: 'IDLE', lat: 18.5350, lng: 73.8800, battery: 100, target: null, eta: null, sceneTimer: null },
-        { id: 'D-Charlie', status: 'IDLE', lat: 18.4850, lng: 73.8200, battery: 100, target: null, eta: null, sceneTimer: null },
+        { id: 'D-Alpha', status: 'IDLE', lat: 18.4575, lng: 73.8510, battery: 100, target: null, eta: null, sceneTimer: null },
+        { id: 'D-Bravo', status: 'IDLE', lat: 18.4580, lng: 73.8520, battery: 100, target: null, eta: null, sceneTimer: null },
+        { id: 'D-Charlie', status: 'IDLE', lat: 18.4570, lng: 73.8500, battery: 100, target: null, eta: null, sceneTimer: null },
     ];
     alerts = [];
 
@@ -482,38 +489,32 @@ setInterval(() => {
                     Math.sin(toRad(drone.lat)) * Math.cos(toRad(targetLat)) * Math.cos(toRad(targetLng - drone.lng));
                 let bearing = Math.atan2(yTarget, xTarget);
 
-                // No-Fly Zone Circumference Routing
-                const NO_FLY_LAT = 18.5200;
-                const NO_FLY_LNG = 73.8550;
-                const NO_FLY_RADIUS_M = 300;
-                const AVOID_RADIUS_M = 320;
+                // --- Multi-Zone Collision Avoidance (Strict) ---
+                NO_FLY_ZONES.forEach(zone => {
+                    const SAFETY_BUFFER = 20; // 20m buffer
+                    const AVOID_RADIUS_M = zone.radius + SAFETY_BUFFER;
+                    const distToZone = calculateDistance(drone.lat, drone.lng, zone.lat, zone.lng);
 
-                const distToNoFly = calculateDistance(drone.lat, drone.lng, NO_FLY_LAT, NO_FLY_LNG);
+                    if (distToZone <= AVOID_RADIUS_M) {
+                        // 1. If inside the actual radius, steer DIRECTLY AWAY
+                        if (distToZone < zone.radius) {
+                            bearing = bearingToCenter + Math.PI; // 180 degrees away (repel)
+                        } 
+                        // 2. If in the buffer/avoidance range, interpolate between tangent and away
+                        else {
+                            let angleDiff = bearing - bearingToCenter;
+                            angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
 
-                if (distToNoFly <= AVOID_RADIUS_M) {
-                    const yCenter = Math.sin(toRad(NO_FLY_LNG - drone.lng)) * Math.cos(toRad(NO_FLY_LAT));
-                    const xCenter = Math.cos(toRad(drone.lat)) * Math.sin(toRad(NO_FLY_LAT)) -
-                        Math.sin(toRad(drone.lat)) * Math.cos(toRad(NO_FLY_LAT)) * Math.cos(toRad(NO_FLY_LNG - drone.lng));
-                    const bearingToCenter = Math.atan2(yCenter, xCenter);
-
-                    let angleDiff = bearing - bearingToCenter;
-                    angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
-
-                    let angularRadius = Math.PI / 2;
-                    if (distToNoFly > NO_FLY_RADIUS_M) {
-                        angularRadius = Math.asin(NO_FLY_RADIUS_M / distToNoFly);
-                    }
-
-                    if (Math.abs(angleDiff) < angularRadius) {
-                        const orbitDir = angleDiff >= 0 ? 1 : -1;
-                        let tangentBearing = bearingToCenter + (orbitDir * Math.PI / 2);
-                        if (distToNoFly < AVOID_RADIUS_M) {
-                            const pushOutAngle = ((AVOID_RADIUS_M - distToNoFly) / AVOID_RADIUS_M) * (Math.PI / 4);
-                            tangentBearing -= orbitDir * pushOutAngle;
+                            const orbitDir = angleDiff >= 0 ? 1 : -1;
+                            const pushFactor = (AVOID_RADIUS_M - distToZone) / SAFETY_BUFFER; // 0 at buffer edge, 1 at radius edge
+                            
+                            // At buffer edge (pushFactor=0), we want tangent (PI/2)
+                            // At radius edge (pushFactor=1), we want purely away (PI)
+                            const avoidanceAngle = (Math.PI / 2) + (pushFactor * Math.PI / 2);
+                            bearing = bearingToCenter + (orbitDir * avoidanceAngle);
                         }
-                        bearing = tangentBearing;
                     }
-                }
+                });
 
                 const latMovement = Math.cos(bearing) * (speedPerTick / 111320);
                 const lngMovement = Math.sin(bearing) * (speedPerTick / (111320 * Math.cos(toRad(drone.lat))));

@@ -1,70 +1,55 @@
-export default function DroneStatus({ telemetry }) {
-    const status = telemetry?.status || 'idle';
+import React from 'react';
 
-    const getBatteryColor = (b) => {
-        if (b > 50) return '#68d391';
-        if (b > 20) return '#f6ad55';
-        return '#fc8181';
-    };
+const DroneStatus = ({ telemetry }) => {
+    const status = telemetry?.status || 'IDLE';
+    const battery = telemetry?.battery ?? 100;
+    
+    const stats = [
+        { label: 'STATUS', value: status === 'IDLE' ? 'READY' : status.toUpperCase(), icon: '🚁', color: 'var(--accent-cyan)' },
+        { label: 'ETA', value: telemetry?.eta != null ? `${telemetry.eta}s` : '0:00s', icon: '⏱️', color: 'var(--accent-cyan)' },
+        { label: 'SPEED', value: telemetry?.speed ? `${Math.round(telemetry.speed)} km/h` : '0 km/h', icon: '🚀', color: 'var(--accent-cyan)' },
+        { label: 'BATTERY', value: `${Math.round(battery)}%`, icon: '🔋', color: battery < 20 ? 'var(--accent-red)' : 'var(--accent-cyan)' },
+    ];
 
     return (
-        <div className="drone-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <div className="drone-name">🚁 DRONE-1</div>
-                    <div className="drone-id">ID: DRN-2024-001 • Urban Safety Unit</div>
-                </div>
-                <div style={{ fontSize: 20 }}>
-                    {status === 'idle' ? '😴' : status === 'dispatched' ? '🚀' : status === 'on_site' ? '🎯' : '↩️'}
-                </div>
-            </div>
-
-            <div className={`drone-status-badge badge-${status}`}>
-                <span className={status !== 'idle' ? 'status-dot pulse' : 'status-dot'} style={{ background: 'currentColor' }} />
-                {status === 'idle' && 'Idle — At Base'}
-                {status === 'dispatched' && 'Dispatched — En Route'}
-                {status === 'on_site' && 'On Site — Monitoring'}
-                {status === 'returning' && 'Returning to Base'}
-            </div>
-
-            {/* Battery */}
-            <div style={{ marginTop: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>
-                    <span>BATTERY</span>
-                    <span style={{ color: getBatteryColor(telemetry?.battery ?? 100), fontWeight: 700 }}>
-                        {telemetry?.battery?.toFixed(0) ?? 100}%
-                    </span>
-                </div>
-                <div className="battery-bar">
-                    <div className="battery-fill" style={{
-                        width: `${telemetry?.battery ?? 100}%`,
-                        background: getBatteryColor(telemetry?.battery ?? 100),
-                    }} />
-                </div>
-            </div>
-
-            <div className="drone-stats">
-                <div className="stat-item">
-                    <div className="stat-label">ETA</div>
-                    <div className="stat-value" style={{ color: 'var(--accent-cyan)' }}>
-                        {telemetry?.eta != null ? `${telemetry.eta}s` : '—'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
+            <div className="panel-title" style={{ padding: 0, border: 'none', marginBottom: '8px' }}>DISPATCH DETAILS</div>
+            
+            {stats.map((stat, i) => (
+                <div key={i} className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '24px' }}>
+                    <div style={{ 
+                        width: '48px', height: '48px', 
+                        background: 'rgba(0, 245, 255, 0.05)', 
+                        borderRadius: '8px', 
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '24px',
+                        color: stat.color,
+                        border: `1px solid ${stat.color}33`
+                    }}>
+                        {stat.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '1px' }}>{stat.label}</div>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: stat.value === 'READY' ? 'var(--accent-cyan)' : 'white' }}>{stat.value}</div>
                     </div>
                 </div>
-                <div className="stat-item">
-                    <div className="stat-label">Altitude</div>
-                    <div className="stat-value">{telemetry?.altitude ? `${Math.round(telemetry.altitude)}m` : '0m'}</div>
-                </div>
-                <div className="stat-item">
-                    <div className="stat-label">Speed</div>
-                    <div className="stat-value">{telemetry?.speed ? `${Math.round(telemetry.speed)}km/h` : '0km/h'}</div>
-                </div>
-                <div className="stat-item">
-                    <div className="stat-label">Position</div>
-                    <div className="stat-value" style={{ fontSize: 10 }}>
-                        {telemetry ? `${telemetry.lat?.toFixed(3)}, ${telemetry.lng?.toFixed(3)}` : 'Base'}
+            ))}
+
+            <div style={{ marginTop: 'auto', padding: '20px 0' }}>
+                <div className="panel-title" style={{ padding: 0, border: 'none', marginBottom: '12px' }}>DRONE FLEET STATUS</div>
+                {[1, 2, 3].map(id => (
+                    <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px' }}>
+                        <span style={{ fontSize: '18px' }}>🚁</span>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '11px', fontWeight: 'bold' }}>DRONE ALPHA {id}</div>
+                            <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>BASE STATION {id}</div>
+                        </div>
+                        <span className="status-tag tag-cyan" style={{ fontSize: '8px' }}>IDLE</span>
                     </div>
-                </div>
+                ))}
             </div>
         </div>
     );
-}
+};
+
+export default DroneStatus;
