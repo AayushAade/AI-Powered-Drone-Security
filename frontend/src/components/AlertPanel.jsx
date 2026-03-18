@@ -1,10 +1,13 @@
 import React from 'react';
+import { TriangleAlert, Radio, PlaneTakeoff, ShieldAlert } from 'lucide-react';
 
 const AlertPanel = ({ alerts }) => {
     if (!alerts || alerts.length === 0) {
         return (
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
-                <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>📡</span>
+                <span style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    <Radio size={24} />
+                </span>
                 NO ACTIVE INCIDENTS IN SECTOR
             </div>
         );
@@ -25,8 +28,8 @@ const AlertPanel = ({ alerts }) => {
                 <tbody>
                     {alerts.map((alert) => (
                         <tr key={alert.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }} className="incident-row">
-                            <td style={{ padding: '12px 8px', color: 'var(--accent-red)', fontWeight: 'bold' }}>
-                                ⚠️ {alert.id.substring(0, 8)}
+                            <td style={{ padding: '12px 8px', color: 'var(--accent-red)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <TriangleAlert size={16} /> {alert.id.substring(0, 8)}
                             </td>
                             <td style={{ padding: '12px 8px', color: 'var(--text-bright)' }}>
                                 {alert.type.replace('_', ' ').toUpperCase()}
@@ -44,7 +47,11 @@ const AlertPanel = ({ alerts }) => {
                                 </span>
                             </td>
                             <td style={{ padding: '12px 8px', color: 'var(--text-dim)' }}>
-                                {alert.status === 'drone_on_site' ? '🟢 ON SCENE' : '🚁 EN ROUTE'}
+                                {alert.status === 'drone_on_site' ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-cyan)' }}><ShieldAlert size={14} /> ON SCENE</span>
+                                ) : (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><PlaneTakeoff size={14} /> EN ROUTE</span>
+                                )}
                             </td>
                             <td style={{ padding: '12px 8px', color: 'var(--text-muted)', textAlign: 'right' }}>
                                 {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { renderToString } from 'react-dom/server';
+import { Plane, AlertTriangle, Crosshair } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -18,11 +20,11 @@ const droneIcon = L.divIcon({
     border: 2px solid var(--accent-cyan);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
+    color: var(--accent-cyan);
     box-shadow: 0 0 20px var(--accent-cyan-glow);
     position: relative;
   ">
-    🚁
+    ${renderToString(<Plane size={24} fill="var(--accent-cyan)" />)}
     <div style="position: absolute; width: 100%; height: 100%; border: 1px solid var(--accent-cyan); border-radius: 50%; animation: pulse 2s infinite;"></div>
   </div>`,
     className: '',
@@ -38,9 +40,9 @@ const incidentIcon = L.divIcon({
     border: 2px solid var(--accent-red);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 16px;
+    color: var(--accent-red);
     box-shadow: 0 0 20px var(--accent-red-glow);
-  ">⚠️</div>`,
+  ">${renderToString(<AlertTriangle size={18} />)}</div>`,
     className: '',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
@@ -54,8 +56,8 @@ const baseIcon = L.divIcon({
     border: 1px solid white;
     border-radius: 2px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px;
-  ">💠</div>`,
+    color: white;
+  ">${renderToString(<Crosshair size={14} />)}</div>`,
     className: '',
     iconSize: [24, 24],
     iconAnchor: [12, 12],

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Camera, Radio } from 'lucide-react';
 
 const VideoFeed = ({ frameData, mobileConnected }) => {
     const cctvChannels = [
@@ -32,7 +33,7 @@ const VideoFeed = ({ frameData, mobileConnected }) => {
                                 <img src={frameData} alt="Feed" style={{ width: '100%', display: 'block' }} />
                             ) : (
                                 <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0c10' }}>
-                                    <span style={{ fontSize: '20px', opacity: 0.1 }}>📷</span>
+                                    <Camera size={32} color="rgba(255,255,255,0.1)" />
                                 </div>
                             )}
                             
@@ -67,7 +68,9 @@ const VideoFeed = ({ frameData, mobileConnected }) => {
                     marginTop: '24px', textAlign: 'center', padding: '24px', 
                     borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.1)' 
                 }}>
-                    <div style={{ fontSize: '24px', marginBottom: '12px' }}>📡</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                        <Radio size={32} color="var(--text-muted)" />
+                    </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold', letterSpacing: '1px' }}>
                         WAITING FOR FLEET UPLINK...
                     </div>

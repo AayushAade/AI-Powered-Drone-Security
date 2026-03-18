@@ -14,6 +14,8 @@
   --accent-red: #ff4d4d;
   --accent-red-glow: rgba(255, 77, 77, 0.3);
   --accent-gold: #ffd700;
+  --accent-orange: #ff6600;
+  --accent-orange-glow: rgba(255, 102, 0, 0.3);
   
   /* Text */
   --text-bright: #ffffff;
