@@ -18,11 +18,46 @@ A real-time, AI-driven command center built for modern first responders. This sy
 
 ## 🏗️ System Architecture
 
-The project is divided into three core microservices:
+The project is divided into four core microservices:
 
 1.  **`/backend` (Node.js & Express):** The central nervous system. Manages Socket.IO connections, handles REST API dispatch alerts, and controls the spawning of Python sub-processes.
 2.  **`/frontend` (React + Tailwind + Vite):** The responder's Command Center. Features draggable resizable video modals (`react-rnd`), live map tracking, and an incident alert sidebar.
 3.  **`/cameras` & `/drones` (Python + OpenCV):** The edge hardware. Captures video via IP Webcams or local webcams, runs YOLO inference, encodes frames to Base64, and pushes them to the Node.js server.
+4.  **`/mobile_app` (React Native & Expo):** The on-ground responder application. Provides real-time alerts, live camera feeds, and geolocation tracking for field units.
+
+```mermaid
+graph TD
+    classDef hardware fill:#2d3748,stroke:#4a5568,color:#fff
+    classDef backend fill:#2c5282,stroke:#2b6cb0,color:#fff
+    classDef client fill:#276749,stroke:#2f855a,color:#fff
+
+    subgraph Edge ["🎥 Edge Hardware (Python + OpenCV & YOLO)"]
+        CCTV["CCTV Cameras\n(Posture/Fall Detection)"]:::hardware
+        Drones["Autonomous Drones\n(Target Tracking)"]:::hardware
+    end
+
+    subgraph Backend_Server ["⚡ Central Server (Node.js/Express)"]
+        SocketIO["WebSocket (Socket.IO)"]:::backend
+        API["REST API Layer"]:::backend
+        ProcessManager["Child Process Manager"]:::backend
+    end
+
+    subgraph Clients ["💻 Client Applications"]
+        Frontend["Command Center Dashboard\n(React/Vite + Leaflet Map)"]:::client
+        Mobile["Field Responder App\n(React Native + Expo)"]:::client
+    end
+
+    CCTV -- "Base64 Frames & AI Events" --> SocketIO
+    Drones -- "Base64 Frames & Telemetry" --> SocketIO
+    
+    API --> ProcessManager
+    ProcessManager -- "Launch/Terminate" -.-> Edge
+
+    Frontend -- "Dispatch Commands" --> API
+    SocketIO <== "Live Feeds & Alerts" ==> Frontend
+    
+    SocketIO <== "Real-time Alerts & Location" ==> Mobile
+```
 
 ---
 
@@ -72,11 +107,21 @@ npm run dev
 
 *(Note: The Python scripts are currently configured to look for an IP Webcam stream at `http://192.0.0.4:8080`. Update `video_url` in the respective Python files to match your hardware).*
 
+### 6. Start the Mobile Application (Optional)
+To run the responder's app on your phone or emulator:
+```bash
+cd mobile_app
+npm install
+npx expo start
+```
+*(Scan the QR code with Expo Go on your mobile device to test).*
+
 ---
 
 ## 🛠️ Built With
 
 *   **Frontend:** React, Vite, Tailwind CSS, React-Leaflet, React-RND
+*   **Mobile App:** React Native, Expo, Socket.IO Client
 *   **Backend:** Node.js, Express, Socket.IO
 *   **AI/CV:** Python, OpenCV, Ultralytics YOLOv11
 
