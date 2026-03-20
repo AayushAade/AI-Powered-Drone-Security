@@ -27,36 +27,72 @@ The project is divided into four core microservices:
 
 ```mermaid
 graph TD
-    classDef hardware fill:#2d3748,stroke:#4a5568,color:#fff
-    classDef backend fill:#2c5282,stroke:#2b6cb0,color:#fff
-    classDef client fill:#276749,stroke:#2f855a,color:#fff
+    %% Define styles
+    classDef input fill:#e2e8f0,stroke:#94a3b8,color:#000
+    classDef edge fill:#f1f5f9,stroke:#cbd5e1,color:#000
+    classDef core fill:#e0f2fe,stroke:#7dd3fc,color:#000
+    classDef ai fill:#fef08a,stroke:#fde047,color:#000
+    classDef ui fill:#dcfce7,stroke:#86efac,color:#000
+    classDef ops fill:#fce7f3,stroke:#f9a8d4,color:#000
 
-    subgraph Edge ["🎥 Edge Hardware (Python + OpenCV & YOLO)"]
-        CCTV["CCTV Cameras\n(Posture/Fall Detection)"]:::hardware
-        Drones["Autonomous Drones\n(Target Tracking)"]:::hardware
+    subgraph Sources ["📱 Data Ingestion Sources"]
+        Mobile["Mobile Devices\nApp Ingest / Broadcast"]:::input
+        CCTV["Fixed CCTV Cameras\nRTSP Streams"]:::input
+        Manual["Manual Staging\n.mp4 Uploads"]:::input
     end
 
-    subgraph Backend_Server ["⚡ Central Server (Node.js/Express)"]
-        SocketIO["WebSocket (Socket.IO)"]:::backend
-        API["REST API Layer"]:::backend
-        ProcessManager["Child Process Manager"]:::backend
+    subgraph EdgeLayer ["🧠 Edge AI Processing Layer (TensorFlow.js)"]
+        DeviceInf["Device-Level Inference\nReal-Time Object Detection"]:::edge
+        Rules["Behavioral Rules Engine"]:::edge
     end
 
-    subgraph Clients ["💻 Client Applications"]
-        Frontend["Command Center Dashboard\n(React/Vite + Leaflet Map)"]:::client
-        Mobile["Field Responder App\n(React Native + Expo)"]:::client
+    subgraph Gateway ["⚡ Media Gateway Server (Node.js/Express)"]
+        VideoTriage["Video Triage Module"]:::core
+        API["REST API Upload\n(/api/upload)"]:::core
+        WS["Low-Latency WebSocket Bus\n(Socket.IO)"]:::core
+        EventBus["Event Bus & Messaging"]:::core
     end
 
-    CCTV -- "Base64 Frames & AI Events" --> SocketIO
-    Drones -- "Base64 Frames & Telemetry" --> SocketIO
+    subgraph AICore ["🤖 AI Core: Cognitive Services"]
+        CV["YOLO11 & ByteTrack\nObject/Pose & Fall Detection"]:::ai
+        LLM["Gemini Vision API\nLLM Scene Reasoning"]:::ai
+    end
+
+    subgraph Orchestration ["🚁 Drone Fleet & Mission Orchestration"]
+        FlightPlan["Flight Planner Module"]:::core
+        Telemetry["Telemetry Monitoring Unit"]:::core
+    end
+
+    subgraph Dashboard ["💻 Command & Control Dashboard"]
+        Map["Situational Awareness Map"]:::ui
+        Feeds["Live AI Alerts Feed"]:::ui
+        Status["Drone Fleet Status"]:::ui
+    end
     
-    API --> ProcessManager
-    ProcessManager -- "Launch/Terminate" -.-> Edge
+    subgraph Operations ["🌍 Field Operations & Analytics"]
+        Analytics["Analytics & Insights Unit"]:::ops
+        FieldOps["Field Operations Unit"]:::ops
+        Drones["Active Drone Squadrons"]:::ops
+    end
 
-    Frontend -- "Dispatch Commands" --> API
-    SocketIO <== "Live Feeds & Alerts" ==> Frontend
+    %% Data flows
+    Mobile --> EdgeLayer
+    CCTV --> EdgeLayer
+    Manual --> EdgeLayer
     
-    SocketIO <== "Real-time Alerts & Location" ==> Mobile
+    DeviceInf --> Rules
+    Rules -->|"Alerts, Metadata & Raw Video"| Gateway
+
+    Gateway <-->|"Control Commands &\nAI Model Propagation"| AICore
+    AICore -->|"Analytics Prediction"| Analytics
+
+    Gateway <-->|"Control Commands &\nDrone Telemetry"| Orchestration
+    Orchestration <-->|"ETA & Commands"| Drones
+
+    Gateway <-->|"Command Interface\n& Packets"| Dashboard
+    
+    Dashboard -->|"Alerts to Authorities"| FieldOps
+    Dashboard -->|"System Reports"| Analytics
 ```
 
 ---
