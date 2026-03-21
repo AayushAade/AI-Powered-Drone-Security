@@ -163,4 +163,4 @@ npx expo start
 
 ---
 
-*Built for Hackathon Innovation | Protecting those who protect us.*
+*Built for Hackathon Innovation.*
