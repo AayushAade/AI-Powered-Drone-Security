@@ -314,8 +314,8 @@ export default function FootageUploadView() {
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: VIDEO PLAYER */}
-                <div className="flex flex-col h-full bg-[#161a22]/40 border border-gray-800 rounded-xl overflow-hidden shadow-2xl relative">
+                {/* RIGHT COLUMN: VIDEO PLAYER (7 Cols) */}
+                <div className="lg:col-span-12 xl:col-span-7 flex flex-col h-full bg-gray-900/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-2xl relative">
                     <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-black/40">
                         <div className="flex items-center gap-4">
                             <div className={`w-3 h-3 rounded-full ${model ? 'bg-green-500 shadow-[0_0_12px_#22c55e]' : 'bg-red-500 animate-pulse'}`}></div>
