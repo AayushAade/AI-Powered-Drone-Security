@@ -34,17 +34,25 @@ const upload = multer({ storage: storage });
 
 const server = http.createServer(app);
 
-// HTTPS server for mobile browser camera access
-let httpsServer;
-try {
-    const sslOptions = {
-        key: fs.readFileSync(path.join(__dirname, 'key.pem')),
-        cert: fs.readFileSync(path.join(__dirname, 'cert.pem')),
-    };
-    httpsServer = https.createServer(sslOptions, app);
-    console.log('🔒 SSL certificates loaded');
-} catch (e) {
-    console.log('⚠️  No SSL certs found, HTTPS disabled. Run: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes');
+// HTTPS server for mobile browser camera access (Optional)
+let httpsServer = null;
+const keyPath = path.join(__dirname, 'key.pem');
+const certPath = path.join(__dirname, 'cert.pem');
+
+if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    try {
+        const sslOptions = {
+            key: fs.readFileSync(keyPath),
+            cert: fs.readFileSync(certPath),
+        };
+        httpsServer = https.createServer(sslOptions, app);
+        console.log('🔒 SSL certificates loaded – HTTPS enabled on port 3443');
+    } catch (e) {
+        console.log('⚠️  Error loading SSL certificates, HTTPS disabled.');
+    }
+} else {
+    console.log('ℹ️  No SSL certs found. Running in HTTP-only mode on port 3000.');
+    console.log('   (To enable HTTPS for mobile web, run: openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes)');
 }
 
 // Socket.IO attached to BOTH servers
@@ -102,6 +110,15 @@ const NO_FLY_ZONES = [
 
 // --- API Endpoints ---
 
+// 0. Health Check (Root Route)
+app.get('/', (req, res) => {
+    res.json({
+        status: "Online",
+        service: "UrbanAxis Backend API",
+        timestamp: new Date().toISOString()
+    });
+});
+
 // 1. Python AI hits this endpoint when an incident is detected
 app.post('/api/alert', (req, res) => {
     const { type, lat, lng, severity, camera_id } = req.body;
@@ -142,7 +159,8 @@ app.post('/api/alert', (req, res) => {
         // Auto-launch drone camera (phone) if not already running
         if (!droneProcess) {
             console.log('📹 Auto-launching drone camera (phone)...');
-            droneProcess = spawn('python', ['../drones/drone_stream_mobile.py'], { cwd: __dirname });
+            const pythonPath = process.env.PYTHON_PATH || 'python3';
+            droneProcess = spawn(pythonPath, ['../drones/drone_stream_mobile.py'], { cwd: __dirname });
             droneProcess.stdout.on('data', (d) => console.log(`[DRONE CAM]: ${d}`));
             droneProcess.stderr.on('data', (d) => console.error(`[DRONE CAM ERROR]: ${d}`));
             droneProcess.on('close', (code) => { console.log(`❌ Drone camera exited (code ${code})`); droneProcess = null; });
@@ -192,7 +210,8 @@ app.post('/api/start-drone', (req, res) => {
     }
 
     console.log('🚁 Launching Python Drone Video Streamer...');
-    droneProcess = spawn('/opt/anaconda3/bin/python', ['drones/drone_stream_mobile.py'], {
+    const pythonPath = process.env.PYTHON_PATH || 'python3';
+    droneProcess = spawn(pythonPath, ['drones/drone_stream_mobile.py'], {
         cwd: require('path').resolve(__dirname, '..'), // Run from root HACKATHON directory
     });
 
@@ -226,7 +245,8 @@ app.post('/api/upload-video', upload.single('video'), (req, res) => {
     const videoPath = require('path').resolve(__dirname, req.file.path);
     console.log(`📹 Launching Python CCTV Video Analyzer on uploaded file: ${videoPath}...`);
 
-    cctvProcess = spawn('/opt/anaconda3/bin/python', ['cameras/cctv_video_analyzer.py', videoPath], {
+    const pythonPath = process.env.PYTHON_PATH || 'python3';
+    cctvProcess = spawn(pythonPath, ['cameras/cctv_video_analyzer.py', videoPath], {
         cwd: require('path').resolve(__dirname, '..'), // Run from root HACKATHON directory
     });
 
@@ -253,7 +273,8 @@ app.post('/api/start-cctv', (req, res) => {
     }
 
     console.log('📹 Launching Python CCTV Streamer...');
-    cctvProcess = spawn('/opt/anaconda3/bin/python', ['cameras/cctv_monitor_invert.py'], {
+    const pythonPath = process.env.PYTHON_PATH || 'python3';
+    cctvProcess = spawn(pythonPath, ['cameras/cctv_monitor_invert.py'], {
         cwd: require('path').resolve(__dirname, '..'), // Run from root HACKATHON directory
     });
 
@@ -419,10 +440,11 @@ app.post('/api/telemetry', (req, res) => {
     if (drone) {
         drone.lat = lat;
         drone.lng = lng;
+        drone.manualOverride = true; // NEW: Mark as manually controlled to stop simulation
 
         // Push instant updates to React UI
         io.emit('telemetry_update', drones);
-        res.status(200).json({ success: true, message: `Drone ${drone_id} warped to [${lat}, ${lng}]` });
+        res.status(200).json({ success: true, message: `Drone ${drone_id} warped to [${lat}, ${lng}] (Simulation Paused)` });
     } else {
         res.status(404).json({ success: false, message: 'Drone not found.' });
     }
@@ -433,6 +455,9 @@ setInterval(() => {
     let stateChanged = false;
 
     drones.forEach(drone => {
+        // Skip simulation for drones currently being controlled via physical mobile app (manual override)
+        if (drone.manualOverride) return;
+
         // ─── DISPATCHED: Move towards incident ───────────────────────────
         if (drone.status === 'DISPATCHED' && drone.target) {
             const targetLat = drone.target.lat;
@@ -496,10 +521,16 @@ setInterval(() => {
                     const distToZone = calculateDistance(drone.lat, drone.lng, zone.lat, zone.lng);
 
                     if (distToZone <= AVOID_RADIUS_M) {
+                        // Calculate bearing from drone to the center of the no-fly zone
+                        const yZone = Math.sin(toRad(zone.lng - drone.lng)) * Math.cos(toRad(zone.lat));
+                        const xZone = Math.cos(toRad(drone.lat)) * Math.sin(toRad(zone.lat)) -
+                            Math.sin(toRad(drone.lat)) * Math.cos(toRad(zone.lat)) * Math.cos(toRad(zone.lng - drone.lng));
+                        const bearingToCenter = Math.atan2(yZone, xZone);
+
                         // 1. If inside the actual radius, steer DIRECTLY AWAY
                         if (distToZone < zone.radius) {
                             bearing = bearingToCenter + Math.PI; // 180 degrees away (repel)
-                        } 
+                        }
                         // 2. If in the buffer/avoidance range, interpolate between tangent and away
                         else {
                             let angleDiff = bearing - bearingToCenter;
@@ -507,7 +538,7 @@ setInterval(() => {
 
                             const orbitDir = angleDiff >= 0 ? 1 : -1;
                             const pushFactor = (AVOID_RADIUS_M - distToZone) / SAFETY_BUFFER; // 0 at buffer edge, 1 at radius edge
-                            
+
                             // At buffer edge (pushFactor=0), we want tangent (PI/2)
                             // At radius edge (pushFactor=1), we want purely away (PI)
                             const avoidanceAngle = (Math.PI / 2) + (pushFactor * Math.PI / 2);
@@ -596,6 +627,12 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('video_frame', data); // THIS IS the critical line that sends it to the frontend!
     });
 
+    // Simple event listener for drone_alert
+    socket.on('drone_alert', (payload) => {
+        // Broadcasts it to all other connected clients using io.emit()
+        io.emit('drone_alert', payload);
+    });
+
     // Accept mobile app gps telemetry over the socket (faster than REST polling)
     socket.on('telemetry_update', (telemetryData) => {
         const { drone_id, lat, lng } = telemetryData;
@@ -603,6 +640,7 @@ io.on('connection', (socket) => {
         if (drone) {
             drone.lat = lat;
             drone.lng = lng;
+            drone.manualOverride = true; // Pause sim for this drone
             // Instantly sync this override out to the dashboard frontend
             io.emit('telemetry_update', drones);
         }

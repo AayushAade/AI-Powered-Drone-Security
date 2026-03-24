@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import './index.css';
 import { io } from 'socket.io-client';
+import { LogOut } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import VideoUpload from './components/VideoUpload';
@@ -12,6 +13,7 @@ import LogsView from './components/views/LogsView';
 import AnalyticsView from './components/views/AnalyticsView';
 import HelpView from './components/views/HelpView';
 import FleetView from './components/views/FleetView';
+import FootageUploadView from './components/views/FootageUploadView';
 
 function Clock() {
     const [time, setTime] = useState(new Date());
@@ -41,6 +43,7 @@ export default function App() {
     const [logs, setLogs] = useState([]);
     const [analysing, setAnalysing] = useState(false);
     const [mainView, setMainView] = useState('map'); // 'map' or 'video'
+    const [fleet, setFleet] = useState([]);
     const [activeTab, setActiveTab] = useState('dashboard');
 
     const logRef = useRef({ addLog: (t, ti, d) => addLog(setLogs, t, ti, d) });
@@ -71,7 +74,9 @@ export default function App() {
         });
 
         socket.on('telemetry_update', (drones) => {
-            const drone = drones[0]; // Assuming single drone for now
+            console.log('[Socket] Received telemetry update:', drones);
+            setFleet(drones); // Update the entire fleet state
+            const drone = drones[0]; // Assuming single drone for main dashboard view
             if (drone) {
                 setDronePos({ lat: drone.lat, lng: drone.lng, altitude: drone.altitude || 0 });
                 setDroneTelemetry(drone);
@@ -87,6 +92,10 @@ export default function App() {
         });
 
         socket.on('video_frame', (data) => {
+            setFrameData(data.image);
+        });
+        
+        socket.on('cctv_frame', (data) => {
             setFrameData(data.image);
         });
 
@@ -140,8 +149,8 @@ export default function App() {
 
         // Polling for viewer_joined if stream not received
         const pollInterval = setInterval(() => {
-            if (!remoteStream && socket.connected) {
-                socket.emit('viewer_joined');
+            if (!remoteStream && socket.current && socket.current.connected) {
+                socket.current.emit('viewer_joined');
             }
         }, 3000);
 
@@ -150,10 +159,10 @@ export default function App() {
             if (peerConnection.current) peerConnection.current.close();
             clearInterval(pollInterval);
         };
-    }, [remoteStream, droneTelemetry?.status]);
+    }, []); // Run once on mount
 
     const renderMainContent = () => {
-        switch(activeTab) {
+        switch (activeTab) {
             case 'dashboard':
                 return (
                     <>
@@ -163,9 +172,9 @@ export default function App() {
 
                         <main className="map-viewport" style={{ position: 'relative' }}>
                             {/* MAP VIEW LAYER */}
-                            <div 
-                                style={mainView === 'map' 
-                                    ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 } 
+                            <div
+                                style={mainView === 'map'
+                                    ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }
                                     : { position: 'absolute', bottom: '24px', left: '24px', width: '320px', height: '180px', zIndex: 1000, cursor: 'pointer', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
                                 onClick={() => { if (mainView === 'video') setMainView('map'); }}
                             >
@@ -178,9 +187,9 @@ export default function App() {
                                     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1001, background: 'rgba(0,0,0,0.1)' }} />
                                 )}
                             </div>
-                            
+
                             {/* VIDEO VIEW LAYER */}
-                            <div 
+                            <div
                                 className={mainView === 'video' ? "" : "glass-card"}
                                 style={mainView === 'video'
                                     ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, background: '#000', display: 'flex', flexDirection: 'column' }
@@ -200,14 +209,14 @@ export default function App() {
                                         <div style={{ position: 'absolute', top: '40%', left: '30%', width: '40%', height: '30%', border: '2px solid rgba(0, 245, 255, 0.4)', background: 'rgba(0, 150, 255, 0.1)', transform: 'perspective(500px) rotateX(20deg)' }}></div>
                                         <div style={{ position: 'absolute', top: '45%', left: '35%', width: '60px', height: '120px', border: '1px solid var(--accent-gold)' }}></div>
                                         <div style={{ position: 'absolute', top: '48%', left: '45%', width: '50px', height: '110px', border: '1px solid var(--accent-gold)' }}></div>
-                                        
+
                                         {/* Overlay text for full screen */}
                                         <div style={{ position: 'absolute', top: 24, left: 24, display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ background: 'rgba(255,0,0,0.8)', color: 'white', padding: '6px 16px', fontSize: '18px', fontWeight: 'bold', borderRadius: '4px' }}>
                                                 DRONE ALPHA
                                             </div>
                                         </div>
-                                        
+
                                         <div style={{ position: 'absolute', top: 24, right: 24 }}>
                                             <div style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '8px 24px', fontSize: '20px', fontWeight: '800', borderRadius: '4px' }}>
                                                 CROWD SIZE: ~52
@@ -216,7 +225,7 @@ export default function App() {
 
                                         {/* Telemetry OSD (On-Screen Display) */}
                                         <div style={{ position: 'absolute', bottom: 24, right: 24, padding: '12px', background: 'rgba(0,0,0,0.6)', border: '1px solid var(--border)', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end', color: 'white', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '14px' }}>
-                                            <div>ALT: 45m <span style={{color: 'var(--text-muted)'}}>+</span></div>
+                                            <div>ALT: 45m <span style={{ color: 'var(--text-muted)' }}>+</span></div>
                                             <div>SPD: 0 km/h (Hover)</div>
                                             <div>BAT: 78%</div>
                                         </div>
@@ -260,10 +269,76 @@ export default function App() {
                 );
             case 'logs': return <LogsView />;
             case 'analytics': return <AnalyticsView />;
-            case 'fleet': return <FleetView />;
+            case 'fleet': return <FleetView drones={fleet} />;
             case 'help': return <HelpView />;
-            default: 
-                return <div style={{gridArea: '1 / 2 / -1 / -1'}} className="glass-card"><h2 style={{color: 'white', textAlign: 'center', marginTop: '20%'}}>VIEW NOT IMPLEMENTED: {activeTab.toUpperCase()}</h2></div>;
+            case 'upload': return <FootageUploadView />;
+            case 'logout':
+                return (
+                    <div style={{ 
+                        gridArea: '1 / 2 / -1 / -1', 
+                        background: 'var(--bg-deep)', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        color: 'white'
+                    }}>
+                        <div className="glass-card" style={{ padding: '40px', textAlign: 'center', maxWidth: '400px' }}>
+                            <div style={{ 
+                                width: '80px', 
+                                height: '80px', 
+                                borderRadius: '50%', 
+                                background: 'rgba(255, 77, 77, 0.1)', 
+                                border: '1px solid var(--accent-red-glow)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 24px',
+                                color: 'var(--accent-red)'
+                            }}>
+                                <LogOut size={40} />
+                            </div>
+                            <h2 style={{ marginBottom: '12px' }}>TERMINATE SESSION?</h2>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
+                                You are about to disconnect from the Command Center secure uplink.
+                            </p>
+                            <div style={{ display: 'flex', gap: '16px' }}>
+                                <button 
+                                    onClick={() => setActiveTab('dashboard')}
+                                    style={{ 
+                                        flex: 1, 
+                                        padding: '12px', 
+                                        background: 'rgba(255,255,255,0.05)', 
+                                        border: '1px solid var(--border)',
+                                        color: 'white',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    CANCEL
+                                </button>
+                                <button 
+                                    onClick={() => window.location.reload()}
+                                    style={{ 
+                                        flex: 1, 
+                                        padding: '12px', 
+                                        background: 'var(--accent-red)', 
+                                        border: 'none',
+                                        color: 'white',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    LOGOUT
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            default:
+                return <div style={{ gridArea: '1 / 2 / -1 / -1' }} className="glass-card"><h2 style={{ color: 'white', textAlign: 'center', marginTop: '20%' }}>VIEW NOT IMPLEMENTED: {activeTab.toUpperCase()}</h2></div>;
         }
     };
 

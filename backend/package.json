@@ -19,5 +19,9 @@
     "multer": "^2.1.0",
     "openai": "^6.25.0",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "cheerio": "^1.2.0",
+    "fs-extra": "^11.3.4"
   }
 }

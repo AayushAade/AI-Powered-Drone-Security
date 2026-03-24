@@ -3,12 +3,12 @@ import { Camera, Radio } from 'lucide-react';
 
 const VideoFeed = ({ frameData, mobileConnected }) => {
     const cctvChannels = [
-        { id: 14, name: 'PLAZA WEST', active: true },
-        { id: 12, name: 'MAIN GATE', active: false },
-        { id: 15, name: 'NORTH PERIMETER', active: false },
-        { id: 16, name: 'PARKING A3', active: false },
-        { id: 17, name: 'LOADING DOCK', active: false },
-        { id: 18, name: 'SERVICE ENTRY', active: false },
+        { id: 14, name: 'PLAZA WEST', active: true, videoSrc: '/sample_cctv_1.mp4' },
+        { id: 12, name: 'MAIN GATE', active: false, videoSrc: '/sample_cctv_2.mp4' },
+        { id: 15, name: 'NORTH PERIMETER', active: false, videoSrc: '/sample_cctv_3.mp4' },
+        { id: 16, name: 'PARKING A3', active: false, videoSrc: '/sample_cctv_4.mp4' },
+        { id: 10, name: 'LOADING DOCK', active: false, videoSrc: '/sample_cctv_5.mp4' },
+        { id: 11, name: 'SERVICE ENTRY', active: false, videoSrc: '/sample_cctv_6.mp4' },
     ];
 
     return (
@@ -25,14 +25,34 @@ const VideoFeed = ({ frameData, mobileConnected }) => {
                         border: ch.active ? '1px solid var(--accent-red)' : '1px solid var(--border)',
                         background: '#000',
                         cursor: 'pointer',
-                        opacity: ch.active ? 1 : 0.6,
+                        opacity: 1, // Keep opacity high for video visibility
                         transition: 'all 0.3s ease'
                     }}>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', height: '100px' }}>
                             {ch.active && frameData ? (
-                                <img src={frameData} alt="Feed" style={{ width: '100%', display: 'block' }} />
+                                <img src={frameData} alt="Feed" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             ) : (
-                                <div style={{ height: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0c10' }}>
+                                <video 
+                                    src={ch.videoSrc}
+                                    autoPlay 
+                                    loop 
+                                    muted 
+                                    playsInline
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    onError={(e) => {
+                                        // Fallback if video is missing
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                />
+                            )}
+                            
+                            {/* Fallback Icon (initially hidden if video works) */}
+                            {!ch.active && (
+                                <div style={{ 
+                                    display: 'none', // Hidden by default, shown by video onError
+                                    height: '100%', alignItems: 'center', justifyContent: 'center', background: '#0a0c10' 
+                                }}>
                                     <Camera size={32} color="rgba(255,255,255,0.1)" />
                                 </div>
                             )}

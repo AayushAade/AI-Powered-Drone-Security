@@ -17,8 +17,8 @@ export default function CameraScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
 
   const cameraRef = useRef<CameraView | null>(null);
-  const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const locationSubRef = useRef<Location.LocationSubscription | null>(null);
+  const streamIntervalRef = useRef<any>(null); // Use any to avoid NodeJS.Timeout vs number conflict in Expo
+  const locationSubRef = useRef<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -78,7 +78,7 @@ export default function CameraScreen() {
           if (photo?.base64) {
             socketService.emit('video_frame', {
               camera_id: DRONE_ID,
-              image: `data:image/jpeg;base64,${photo.base64}`
+              image: photo.base64 // Send raw base64 (backend/AI expects no prefix)
             });
           }
         } catch (e) {

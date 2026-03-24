@@ -1,8 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
-// For local testing on a physical device, replace 'localhost' with your computer's IP address
-// Examples: '192.168.1.xxx'
-const SOCKET_URL = 'http://localhost:3000';
+// For local testing on a physical device, uses the IP defined in your .env
+const SERVER_IP = process.env.EXPO_PUBLIC_SERVER_IP || 'localhost';
+const SOCKET_URL = `http://${SERVER_IP}:3000`;
 
 class SocketService {
     private socket: Socket | null = null;

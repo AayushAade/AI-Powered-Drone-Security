@@ -66,19 +66,20 @@ const baseIcon = L.divIcon({
 const MAP_STYLES = {
     satellite: {
         name: 'TACTICAL (SATELLITE)',
-        // Using high-res Google Hybrid satellite tiles which have better 3D depth and definition
         url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-        attribution: 'Google Maps',
+        maxNativeZoom: 20
     },
     dark: {
         name: 'COMMAND (DARK)',
         url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; CartoDB',
+        maxNativeZoom: 20,
+        subdomains: 'abcd'
     },
     swiggy: {
         name: 'CLEAN (LIGHT)',
         url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; CartoDB',
+        maxNativeZoom: 20,
+        subdomains: 'abcd'
     },
 };
 
@@ -131,9 +132,11 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
             attributionControl: false,
         });
 
-        tileLayer.current = L.tileLayer(MAP_STYLES.satellite.url, {
+        const currentStyle = MAP_STYLES[style];
+        tileLayer.current = L.tileLayer(currentStyle.url, {
             maxZoom: 22,
-            maxNativeZoom: 20
+            maxNativeZoom: currentStyle.maxNativeZoom || 19,
+            subdomains: currentStyle.subdomains || 'abc'
         }).addTo(map);
 
         // Render all No-Fly Zones
@@ -185,9 +188,30 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
 
     // Handle Style Change
     useEffect(() => {
-        if (tileLayer.current && mapInstance.current) {
-            tileLayer.current.setUrl(MAP_STYLES[style].url);
+        if (!mapInstance.current) return;
+
+        // Remove old layer if it exists
+        if (tileLayer.current) {
+            mapInstance.current.removeLayer(tileLayer.current);
         }
+
+        const currentStyle = MAP_STYLES[style];
+        
+        // Create new layer with fresh options
+        tileLayer.current = L.tileLayer(currentStyle.url, {
+            maxZoom: 22,
+            maxNativeZoom: currentStyle.maxNativeZoom || 19,
+            subdomains: currentStyle.subdomains || 'abc',
+            attribution: '© OpenStreetMap contributors © CARTO'
+        }).addTo(mapInstance.current);
+
+        // Map filter for satellite mode (tactical)
+        if (style === 'satellite') {
+            mapRef.current.classList.add('tactical-map-filter');
+        } else {
+            mapRef.current.classList.remove('tactical-map-filter');
+        }
+
     }, [style]);
 
     // Update drone position
@@ -259,7 +283,6 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
 
             <div 
                 ref={mapRef} 
-                className={style === 'satellite' ? 'tactical-map-filter' : ''}
                 style={{ width: '100%', height: '100%', background: '#000' }} 
             />
         </div>

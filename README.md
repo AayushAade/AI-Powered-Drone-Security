@@ -154,12 +154,29 @@ npx expo start
 
 ---
 
-## 🛠️ Built With
+## 🛠️ Tech Stack & Technologies
 
-*   **Frontend:** React, Vite, Tailwind CSS, React-Leaflet, React-RND
-*   **Mobile App:** React Native, Expo, Socket.IO Client
-*   **Backend:** Node.js, Express, Socket.IO
-*   **AI/CV:** Python, OpenCV, Ultralytics YOLOv11
+### 💻 Frontend & UI (Command Center)
+*   **React (v19) & Vite:** High-performance frontend framework and build tool for the main dashboard.
+*   **Tailwind CSS (v4):** Utility-first CSS framework handling all styling, dark-mode themes, and responsive grid layouts.
+*   **React-Leaflet:** Live geospatial tracking and map visualizations.
+*   **React-RND:** Draggable and resizable video feed modals.
+*   **Lucide React:** SVG iconography used across the dashboard.
+*   **HTML5 WebRTC:** (`navigator.mediaDevices.getUserMedia`) Captures live camera feeds straight from device browsers.
+
+### 📱 Mobile Application
+*   **React Native & Expo:** Cross-platform mobile application framework for the on-ground responder app.
+
+### ⚡ Backend & Real-Time Networking
+*   **Node.js & Express.js:** Backend runtime and web framework facilitating the server API, process management, and asset generation.
+*   **Socket.IO:** Low-latency, real-time bi-directional communication channels (transmitting vehicle telemetry and AI triggers).
+
+### 🧠 AI, Computer Vision & Edge Processing
+*   **TensorFlow.js & COCO-SSD:** Browser-based Edge ML for detecting object/gatherings directly on edge devices without straining backend servers.
+*   **YOLO (YOLOv8 & YOLO11):** Advanced deep-learning vision models for robust object detection and human pose estimation.
+*   **OpenCV & Python:** Core computer vision library powering the dedicated hardware analysis scripts.
+*   **ByteTrack & Heuristic Algorithms:** Maintains consistent ID tracking across frames and detects abnormal human behaviors (e.g., falls).
+*   **LLM Integration:** Processes real-time event logs to compile autonomous, readable incident reports for system operators.
 
 ---
 

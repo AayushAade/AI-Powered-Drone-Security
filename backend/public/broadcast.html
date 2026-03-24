@@ -72,22 +72,35 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud .status.ai { color: #ff0; }
   </style>
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Edge AI: TensorFlow.js & COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 </head>
 <body>
   <video id="localVideo" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
 
   <div class="hud">
-    <h1>🛩️ DRONE CAM — BROADCASTER</h1>
+    <h1>🛩️ DRONE CAM — BROADCASTER (Edge AI)</h1>
     <div id="socketStatus" class="status disconnected">⚫ Not connected</div>
     <div id="rtcStatus" class="status">WebRTC: Idle</div>
+    <div id="aiStatus" class="status ai">🧠 AI: Loading model...</div>
   </div>
 
   <div class="controls">
-    <button id="startBtn" onclick="toggleBroadcast()">▶ START BROADCAST</button>
+    <button id="startBtn" onclick="toggleBroadcast()" disabled>⏳ LOADING AI...</button>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
   <script>
     const ICE_SERVERS = {
       iceServers: [
@@ -100,11 +113,28 @@
     let pc = null;
     let localStream = null;
     let broadcasting = false;
+    let model = null;
+    let detectionFrameId = null;
+    let lastAlertTime = 0;
 
     const video = document.getElementById('localVideo');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
     const startBtn = document.getElementById('startBtn');
     const socketStatusEl = document.getElementById('socketStatus');
     const rtcStatusEl = document.getElementById('rtcStatus');
+    const aiStatusEl = document.getElementById('aiStatus');
+
+    // Load Edge AI model on startup
+    cocoSsd.load().then(loadedModel => {
+      model = loadedModel;
+      aiStatusEl.innerText = '🧠 AI: Model Ready';
+      startBtn.disabled = false;
+      startBtn.innerText = '▶ START BROADCAST & AI';
+    }).catch(err => {
+      aiStatusEl.innerText = '❌ AI: Failed to load';
+      console.error(err);
+    });
 
     function setSocketStatus(text, cls) {
       socketStatusEl.textContent = text;
@@ -139,11 +169,19 @@
         });
         video.srcObject = localStream;
         console.log('[Camera] ✅ Stream acquired:', localStream.getTracks().length, 'tracks');
+        
+        // Wait for video dimensions to be ready before starting AI
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          startDetection();
+        };
+
       } catch (e) {
         console.error('[Camera] ❌ Failed:', e);
         alert('Could not access camera. Please allow camera permission and try again.');
         startBtn.disabled = false;
-        startBtn.textContent = '▶ START BROADCAST';
+        startBtn.textContent = '▶ START BROADCAST & AI';
         return;
       }
 
@@ -236,7 +274,65 @@
       }
     }
 
+    async function startDetection() {
+      if (!model || !broadcasting) return;
+
+      const predictions = await model.detect(video);
+      
+      const drawWidth = video.clientWidth;
+      const drawHeight = video.clientHeight;
+      canvas.width = drawWidth;
+      canvas.height = drawHeight;
+      const scaleX = drawWidth / video.videoWidth;
+      const scaleY = drawHeight / video.videoHeight;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Courier New';
+      ctx.lineWidth = 2;
+
+      let incidentDetected = false;
+
+      predictions.forEach(prediction => {
+        // Person / object detection rules
+        if (prediction.class === 'person' && prediction.score > 0.5) {
+          incidentDetected = true;
+          const [x, y, width, height] = prediction.bbox;
+          
+          ctx.strokeStyle = '#FF3B30';
+          ctx.beginPath();
+          ctx.rect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+          ctx.stroke();
+          
+          ctx.fillStyle = '#FF3B30';
+          ctx.fillText(`PERSON ${Math.round(prediction.score * 100)}%`, x * scaleX, (y * scaleY) - 5);
+        }
+      });
+
+      const now = Date.now();
+      if (incidentDetected && (now - lastAlertTime > 5000)) {
+        aiStatusEl.innerText = '🚨 AI: INTRUDER DETECTED!';
+        aiStatusEl.style.color = '#f00';
+        
+        if (socket && socket.connected) {
+          socket.emit('drone_alert', {
+            type: 'Person Detected (Edge AI)',
+            timestamp: new Date().toISOString(),
+            coords: [Math.random() * 0.01 + 34.05, Math.random() * 0.01 - 118.25], // Real GPS can be wired here
+            droneId: "PHONE-DRONE-01",
+            severity: "High"
+          });
+        }
+        lastAlertTime = now;
+      } else if (!incidentDetected && (now - lastAlertTime > 2000)) {
+         aiStatusEl.innerText = '🧠 AI: Scanning...';
+         aiStatusEl.style.color = '#ff0';
+      }
+
+      detectionFrameId = requestAnimationFrame(startDetection);
+    }
+
     function stopBroadcast() {
+      if (detectionFrameId) cancelAnimationFrame(detectionFrameId);
       if (pc) { pc.close(); pc = null; }
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
@@ -244,12 +340,15 @@
         video.srcObject = null;
       }
       if (socket) { socket.disconnect(); socket = null; }
-
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       broadcasting = false;
       startBtn.classList.remove('active');
-      startBtn.textContent = '▶ START BROADCAST';
+      startBtn.textContent = '▶ START BROADCAST & AI';
       setSocketStatus('⚫ Not connected', 'disconnected');
       setRtcStatus('Idle');
+      aiStatusEl.innerText = '🧠 AI: Model Ready';
+      aiStatusEl.style.color = '#ff0';
     }
   </script>
 </body>

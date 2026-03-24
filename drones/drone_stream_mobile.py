@@ -19,8 +19,8 @@ def run_local_video():
     # Load the YOLO model
     model = YOLO('../project_assets/yolo11n.pt') 
 
-    video_url = "http://192.0.0.4:8080/video"
-    print(f"Connecting Drone Feed to Mobile Hotspot ({video_url})...")
+    video_url = "../Video_Clip_Generation_Request_Fulfilled.mp4"
+    print(f"Connecting Drone Feed to Local Video ({video_url})...")
     cap = cv2.VideoCapture(video_url)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     if not cap.isOpened():

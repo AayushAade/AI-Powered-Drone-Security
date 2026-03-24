@@ -6,12 +6,14 @@ import {
     Network,
     HelpCircle,
     LogOut,
-    Hexagon
+    Hexagon,
+    Upload
 } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
     const mainNavItems = [
         { icon: <LayoutDashboard size={20} />, id: 'dashboard' },
+        { icon: <Upload size={20} />, id: 'upload', title: 'Analyze Footage' },
         { icon: <ClipboardList size={20} />, id: 'logs' },
         { icon: <Target size={20} />, id: 'analytics' },
         { icon: <Network size={20} />, id: 'fleet' },
