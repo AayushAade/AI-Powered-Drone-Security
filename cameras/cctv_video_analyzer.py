@@ -1,148 +1,127 @@
+import os
 import cv2
 import base64
 import time
+import eventlet
 import socketio
-import sys
 import numpy as np
 from ultralytics import YOLO
-from sklearn.cluster import DBSCAN
 
-# 1. Check Arguments
-if len(sys.argv) < 2:
-    print("Error: No video file path provided.")
-    sys.exit(1)
+# 1. Initialize Socket.IO Server
+sio = socketio.Server(cors_allowed_origins='*')
+app = socketio.WSGIApp(sio)
 
-video_path = sys.argv[1]
+# 2. Load Dual-Model AI Architecture
+print("🚀 Initializing Dual-Model Persistent AI Server...")
 
-# 2. Setup Socket.IO
-sio = socketio.Client()
-try:
-    sio.connect('http://localhost:3000')
-except Exception as e:
-    print(f"Error connecting to backend: {e}")
-    sys.exit(1)
+# Paths for models
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SAFETY_MODEL_PATH = os.path.join(BASE_DIR, "..", "project_assets", "yolo11n.pt")
+FIRE_MODEL_PATH = os.path.join(BASE_DIR, "fire_model.pt")
 
-# 3. Load YOLOv11 Model
-print("Loading YOLOv11 for Crowd Scanning...")
-# Load from project_assets relative to root
-model = YOLO("project_assets/yolo11n.pt")
-print("✅ YOLO Model Loaded.")
+# Load Models
+safety_model = YOLO(SAFETY_MODEL_PATH)
+fire_model = YOLO(FIRE_MODEL_PATH)
 
-# 4. Open Video File
-cap = cv2.VideoCapture(video_path)
-if not cap.isOpened():
-    print(f"Error: Could not open video file {video_path}")
-    sio.disconnect()
-    sys.exit(1)
+print("✅ AI Models Loaded & Ready.")
 
-print(f"STARTED CROWD SCANNING ON UPLOADED VIDEO: {video_path}")
+# 3. Socket.IO Event Handlers
+@sio.event
+def connect(sid, environ):
+    print(f"✅ Dashboard Connected: {sid}")
 
-last_alert_time = 0
-ALERT_COOLDOWN = 4 # Reduced to 4 seconds for better responsive monitoring without spam
-CROWD_THRESHOLD = 5
+@sio.event
+def disconnect(sid):
+    print(f"❌ Dashboard Disconnected: {sid}")
 
-try:
+@sio.on('start_scan')
+def handle_start_scan(sid, data):
+    video_filename = data.get('video_filename')
+    print(f"🎬 Starting AI Scan for: {video_filename}")
+    
+    # Locate Video in backend/uploads
+    video_path = os.path.join(BASE_DIR, "..", "backend", "uploads", video_filename)
+    
+    # Internal Sample Check (if not in uploads, maybe in public)
+    if not os.path.exists(video_path):
+        video_path = os.path.join(BASE_DIR, "..", "frontend", "public", video_filename)
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"❌ Error: Could not open video {video_path}")
+        sio.emit('error', {'message': f'Could not open video: {video_filename}'}, to=sid)
+        return
+
+    print(f"⚡ Streaming vision updates to {sid}...")
+    
     frame_count = 0
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret:
-            print("End of video reached. Analysis complete.")
-            break
+        if not ret: break
 
         frame_count += 1
-        # Process every 2nd frame for better performance during analysis
-        if frame_count % 2 != 0:
-            continue
+        if frame_count % 3 != 0: continue # Process every 3rd frame for speed
 
-        # Resize for consistent processing speed
-        frame = cv2.resize(frame, (640, 480))
+        # Resize for performance and dashboard fit
+        frame_resized = cv2.resize(frame, (640, 480))
         
-        # Run YOLO Inference with stricter NMS (iou) and sensitivity (conf)
-        results = model(frame, verbose=False, conf=0.35, iou=0.45)
+        # Dual-Model Inference
+        safety_results = safety_model(frame_resized, verbose=False, conf=0.35)
+        fire_results = fire_model(frame_resized, verbose=False, conf=0.45)
         
-        person_centers = []
-        person_boxes = []
-        annotated_frame = frame.copy()
+        active_alerts = []
+        person_count = 0
         
-        for r in results:
+        # Draw Results Directly on Frame (as requested)
+        # 1. Safety Detections
+        for r in safety_results:
             for box in r.boxes:
-                cls = int(box.cls[0])
-                label = model.names[cls]
-                if label == 'person':
+                cls_id = int(box.cls[0])
+                label = safety_model.names[cls_id].lower()
+                
+                if label in ['person', 'car', 'motorcycle']:
+                    if label == 'person': person_count += 1
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    person_boxes.append((x1, y1, x2, y2))
-                    # Center point for clustering
-                    person_centers.append([(x1 + x2) / 2, (y1 + y2) / 2])
-                    # Draw Person Box (Cyan, No Label)
-                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 255), 1)
+                    # Cyan Box for safety entities
+                    cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (255, 245, 0), 2) 
 
-        person_count = len(person_centers)
-        cluster_detected = False
-        
-        # --- SPATIAL CLUSTERING (DBSCAN) ---
+        # 2. Hazard Detections
+        for r in fire_results:
+            for box in r.boxes:
+                cls_id = int(box.cls[0])
+                label = fire_model.names[cls_id].lower()
+                
+                if label in ['fire', 'smoke']:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    # Vibrant Red Box for hazards
+                    cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(frame_resized, f"CRITICAL: {label.upper()}", (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    if label.upper() not in active_alerts:
+                        active_alerts.append(label.upper())
+
+        # Crowd Logic
         if person_count >= 8:
-            X = np.array(person_centers)
-            clustering = DBSCAN(eps=100, min_samples=8).fit(X)
-            labels = clustering.labels_
-            
-            # Find clusters (label != -1)
-            unique_labels = set(labels)
-            for l in unique_labels:
-                if l == -1: continue # Noise
-                
-                cluster_detected = True
-                class_member_mask = (labels == l)
-                cluster_points = X[class_member_mask]
-                
-                # Get cluster boundaries
-                c_x1, c_y1 = np.min(cluster_points, axis=0)
-                c_x2, c_y2 = np.max(cluster_points, axis=0)
-                
-                # Draw Red Highlight for the Cluster (Translucent-ish using an overlay)
-                overlay = annotated_frame.copy()
-                # Expand slightly for visibility
-                pad = 30
-                cv2.rectangle(overlay, (int(c_x1-pad), int(c_y1-pad)), (int(c_x2+pad), int(c_y2+pad)), (0, 0, 255), -1)
-                cv2.addWeighted(overlay, 0.3, annotated_frame, 0.7, 0, annotated_frame)
-                cv2.rectangle(annotated_frame, (int(c_x1-pad), int(c_y1-pad)), (int(c_x2+pad), int(c_y2+pad)), (0, 0, 255), 2)
-                
-                cv2.putText(annotated_frame, "DENSE CROWD DETECTED", (int(c_x1), int(c_y1 - 40)), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            active_alerts.append('CROWD GATHERING')
 
-        # Dashboard HUD
-        cv2.putText(annotated_frame, f"CROWD SCANNER | PEOPLE: {person_count}", (20, 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-        
-        if cluster_detected:
-            cv2.putText(annotated_frame, "ACTIVE GATHERING!", (20, 80), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-
-        # Stream frame to dashboard
-        _, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        # Encode Frame to Base64
+        _, buffer = cv2.imencode('.jpg', frame_resized, [cv2.IMWRITE_JPEG_QUALITY, 45])
         b64_img = base64.b64encode(buffer).decode('utf-8')
-        sio.emit('cctv_frame', {'image': b64_img})
 
-        # Trigger Incident Alert if dense cluster (not just headcount)
-        if cluster_detected:
-            current_time = time.time()
-            if current_time - last_alert_time > ALERT_COOLDOWN:
-                print(f"🚨 DENSE CLUSTER DETECTED: {person_count} people gathering!")
-                incident_data = {
-                    'type': f'Crowd Gathering ({person_count} people)',
-                    'lat': 18.5204, 
-                    'lng': 73.8567,
-                    'severity': 'High',
-                    'camera_id': 'UPLOADED_INFERENCE'
-                }
-                sio.emit('incident_alert', incident_data)
-                last_alert_time = current_time
+        # Emit Unified Vision Update
+        sio.emit('vision_update', {
+            'frame': f"data:image/jpeg;base64,{b64_img}",
+            'alerts': active_alerts,
+        }, to=sid)
 
-        # Sleep slightly to avoid overwhelming the socket
-        time.sleep(0.01)
+        # Non-blocking pause
+        eventlet.sleep(0.01)
 
-except Exception as e:
-    print(f"Error during analysis: {e}")
-finally:
     cap.release()
-    sio.disconnect()
-    print("Analysis finished.")
+    print(f"✅ Scan Complete for: {video_filename}")
+    sio.emit('scan_complete', {'video_filename': video_filename}, to=sid)
+
+# 4. Start Server
+if __name__ == '__main__':
+    print("📡 AI Analytics Server listening on http://0.0.0.0:5001")
+    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 5001)), app)

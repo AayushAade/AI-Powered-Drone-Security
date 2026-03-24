@@ -18,8 +18,10 @@ video_path = sys.argv[1]
 sio = socketio.Client()
 sio.connect('http://localhost:3000')
 
-# 3. Load YOLO Model
-model = YOLO('yolo11n.pt')
+# 3. Load Fire/Smoke Model
+print("Loading Fire & Smoke Detection AI...")
+model = YOLO('../backend/fire_model.pt')
+print("✅ Fire & Smoke Model Loaded.")
 
 # 4. Open Video File
 cap = cv2.VideoCapture(video_path)
@@ -29,11 +31,11 @@ if not cap.isOpened():
     sio.disconnect()
     sys.exit(1)
 
-print(f"STARTED YOLO DETECTION ON UPLOADED VIDEO: {video_path}")
+print(f"STARTED AERIAL FIRE SCANNING ON VIDEO: {video_path}")
 
 # Cooldown for incident alerts (per type)
 last_alert_sent = {}
-ALERT_COOLDOWN = 4 # Seconds
+ALERT_COOLDOWN = 3 # Seconds
 
 try:
     while cap.isOpened():
@@ -46,28 +48,28 @@ try:
         # Resize for performance
         frame_resized = cv2.resize(frame, (640, 480))
 
-        # Run Inference with stricter NMS (iou) and sensitivity (conf)
-        results = model(frame_resized, stream=True, verbose=False, conf=0.35, iou=0.4)
+        # Run Inference
+        results = model(frame_resized, stream=True, verbose=False, conf=0.40, iou=0.4)
         
         objects_detected = []
         for r in results:
             boxes = r.boxes
             for box in boxes:
-                # Bounding Box
-                x1, y1, x2, y2 = box.xyxy[0]
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                cls = int(box.cls[0])
+                label = model.names[cls].lower()
                 
-                # Confidence
-                conf = math.ceil((box.conf[0] * 100)) / 100
-                
-                if conf > 0.6:  # 60% confidence threshold
-                    cls = int(box.cls[0])
-                    class_name = model.names[cls]
-                    objects_detected.append(class_name)
+                if label in ['fire', 'smoke']:
+                    # Bounding Box
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    conf = float(box.conf[0])
                     
-                    # Draw Red Box & Label
-                    cv2.rectangle(frame_resized, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(frame_resized, f"{class_name} {conf}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                    objects_detected.append(label)
+                    
+                    # Draw Flame/Smoke Box (Red for Fire, Grey for Smoke)
+                    color = (0, 0, 255) if label == 'fire' else (128, 128, 128)
+                    cv2.rectangle(frame_resized, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(frame_resized, f"CRITICAL: {label.upper()} ({conf:.2f})", (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
         # Convert to Base64
         _, buffer = cv2.imencode('.jpg', frame_resized, [cv2.IMWRITE_JPEG_QUALITY, 50])
@@ -76,22 +78,22 @@ try:
         # Broadcast to Node.js backend
         sio.emit('video_frame', {'image': base64_img})
         
-        # If we detect a person, trigger a system alert with cooldown
-        if 'person' in objects_detected:
-            alert_type = 'PERSON DETECTED'
-            current_time = time.time()
-            
-            if alert_type not in last_alert_sent or (current_time - last_alert_sent[alert_type] > ALERT_COOLDOWN):
-                print(f"🚨 ALERT: {alert_type} in drone feed!")
-                sio.emit('incident_alert', {
-                    'id': f'INC-{int(time.time())}',
-                    'type': f'{alert_type} (UPLOADED VID)',
-                    'lat': 18.5204, 
-                    'lng': 73.8567,
-                    'severity': 'HIGH',
-                    'timestamp': time.time() * 1000
-                })
-                last_alert_sent[alert_type] = current_time
+        # If we detect fire or smoke, trigger a system alert with cooldown
+        for alert_type in ['fire', 'smoke']:
+            if alert_type in objects_detected:
+                current_time = time.time()
+                
+                if alert_type not in last_alert_sent or (current_time - last_alert_sent[alert_type] > ALERT_COOLDOWN):
+                    print(f"🔥 DRONE ALERT: {alert_type.upper()} DETECTED!")
+                    sio.emit('incident_alert', {
+                        'id': f'FIRE-{int(time.time())}',
+                        'type': f'{alert_type.upper()} DETECTED (DRONE FEED)',
+                        'lat': 18.5204, 
+                        'lng': 73.8567,
+                        'severity': 'CRITICAL',
+                        'timestamp': time.time() * 1000
+                    })
+                    last_alert_sent[alert_type] = current_time
 
         # Process at approx 30 FPS
         time.sleep(0.033)

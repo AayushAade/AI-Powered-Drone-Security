@@ -41,6 +41,7 @@ env/
 
 # Large Files / AI Models
 yolo11n.pt
+*.pt
 *.weights
 *.h5
 *.onnx

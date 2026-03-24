@@ -651,6 +651,11 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('cctv_frame', data);
     });
 
+    // --- DUAL-MODEL UNIFIED TELEMETRY ---
+    socket.on('vision_update', (data) => {
+        socket.broadcast.emit('vision_update', data);
+    });
+
     // Receive triggered alerts directly from Edge AI testers or CCTV via websockets
     socket.on('incident_alert', (incidentData) => {
         const newAlert = {

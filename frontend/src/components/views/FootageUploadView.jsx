@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, MapPin, FileVideo, FileText, Play, Plus, Trash2, Info, Brain, Activity } from 'lucide-react';
 import * as tf from '@tensorflow/tfjs';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import { io } from 'socket.io-client';
 
 export default function FootageUploadView() {
     const [stagedVideos, setStagedVideos] = useState([
@@ -10,8 +11,10 @@ export default function FootageUploadView() {
     ]);
     const [selectedVideo, setSelectedVideo] = useState(null);
     const [progress, setProgress] = useState(0);
-    const [model, setModel] = useState(null);
+    const [model, setModel] = useState(true); // AI Server Ready
     const [detectionCount, setDetectionCount] = useState(0);
+    const [aiFrame, setAiFrame] = useState(null);
+    const [aiSocket, setAiSocket] = useState(null);
     const [detectionLogs, setDetectionLogs] = useState([
         { id: 1, text: 'SYSTEM: READY FOR ANALYSIS', type: 'info' },
     ]);
@@ -19,92 +22,32 @@ export default function FootageUploadView() {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
 
-    // Load AI Model on Mount
+    // --- PERSISTENT AI SERVER CONNECTION (Port 5001) ---
     useEffect(() => {
-        const loadModel = async () => {
-            console.log("Loading COCO-SSD Model...");
-            const loadedModel = await cocoSsd.load();
-            setModel(loadedModel);
-            console.log("AI Model Loaded!");
-        };
-        loadModel();
-    }, []);
+        const socket = io('http://localhost:5001');
+        setAiSocket(socket);
 
-    const detectionHistory = useRef([]);
-
-    const detectFrame = async () => {
-        if (!videoRef.current || !canvasRef.current || !model || videoRef.current.paused || videoRef.current.ended) {
-            return;
-        }
-
-        const predictions = await model.detect(videoRef.current, 100, 0.30);
-        const persons = predictions.filter(p => p.class === 'person');
-        const personData = persons.map(p => {
-            const [x, y, w, h] = p.bbox;
-            return {
-                bbox: p.bbox,
-                center: [x + w / 2, y + h / 2]
-            };
-        });
-
-        // Spatial Density Check: Find clusters of 8+ people within 60px (strictly tight)
-        let crowdCluster = null;
-        for (let i = 0; i < personData.length; i++) {
-            const neighbors = personData.filter((p, idx) => {
-                if (i === idx) return false;
-                const dist = Math.sqrt(
-                    Math.pow(personData[i].center[0] - p.center[0], 2) +
-                    Math.pow(personData[i].center[1] - p.center[1], 2)
-                );
-                return dist <= 60;
-            });
-
-            if (neighbors.length >= 7) { // 7 neighbors + self = 8 people
-                const clusterPoints = [personData[i], ...neighbors];
-                const minX = Math.min(...clusterPoints.map(p => p.bbox[0]));
-                const minY = Math.min(...clusterPoints.map(p => p.bbox[1]));
-                const maxX = Math.max(...clusterPoints.map(p => p.bbox[0] + p.bbox[2]));
-                const maxY = Math.max(...clusterPoints.map(p => p.bbox[1] + p.bbox[3]));
-                crowdCluster = [minX, minY, maxX - minX, maxY - minY];
-                break; // Found a dense 'huddle'
+        socket.on('vision_update', (data) => {
+            if (data.frame) setAiFrame(data.frame);
+            
+            if (data.alerts && data.alerts.length > 0) {
+                data.alerts.forEach(alert => {
+                    const type = (alert.includes('FIRE') || alert.includes('SMOKE')) ? 'alert' : 'warning';
+                    addThrottledLog(`${alert.toUpperCase()} DETECTED`, type);
+                    if (alert.includes('CROWD')) setDetectionCount(8);
+                });
+            } else {
+                setDetectionCount(0);
             }
-        }
-
-        setDetectionCount(crowdCluster ? 8 : 0); // Simplified for the HUD to show "CROWD" state
-
-        const ctx = canvasRef.current.getContext('2d');
-        const { videoWidth, videoHeight } = videoRef.current;
-        
-        // Match canvas dimensions to video
-        canvasRef.current.width = videoWidth;
-        canvasRef.current.height = videoHeight;
-        
-        ctx.clearRect(0, 0, videoWidth, videoHeight);
-
-        personData.forEach(p => {
-            const [x, y, width, height] = p.bbox;
-            
-            // Draw Individual Cyan Bounding Box (Clean)
-            ctx.strokeStyle = '#00f5ff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, width, height);
         });
 
-        // Draw Red Warning Box around the dense cluster if detected
-        if (crowdCluster) {
-            const [x, y, w, h] = crowdCluster;
-            ctx.strokeStyle = '#ff4d4d';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([10, 5]); // Dashed line for warning effect
-            ctx.strokeRect(x - 10, y - 10, w + 20, h + 20);
-            ctx.setLineDash([]); // Reset dash for next frame
-            
-            ctx.fillStyle = 'rgba(255, 77, 77, 0.1)';
-            ctx.fillRect(x - 10, y - 10, w + 20, h + 20);
-        }
+        socket.on('scan_complete', (data) => {
+            console.log(`✅ Scan Complete: ${data.video_filename}`);
+            addThrottledLog(`SYSTEM: SCAN COMPLETE | ${data.video_filename.toUpperCase()}`, 'info');
+        });
 
-        requestAnimationFrame(detectFrame);
-    };
+        return () => socket.disconnect();
+    }, []);
 
     const handleFiles = (files) => {
         const fileList = Array.from(files);
@@ -173,8 +116,7 @@ export default function FootageUploadView() {
 
     const addThrottledLog = (text, type = 'info') => {
         const now = Date.now();
-        const cooldown = 4000; // 4 second frontend cooldown
-        
+        const cooldown = 4000;
         if (!lastLogTime.current[text] || (now - lastLogTime.current[text] > cooldown)) {
             setDetectionLogs(prev => [{ id: now, text, type }, ...prev].slice(0, 10));
             lastLogTime.current[text] = now;
@@ -182,22 +124,10 @@ export default function FootageUploadView() {
     };
 
     const handleStartScan = (videoFilename) => {
-        console.log(`🚀 Initializing YOLOv11 Scan for: ${videoFilename}`);
-        addThrottledLog(`SYSTEM: SCANNING ${videoFilename}...`, 'info');
-        
-        // Mocking some detections for the log (simulating backend events)
-        const mockAlerts = [
-            { text: '⚠️ PERSON DETECTED - 92% Confidence', type: 'alert' },
-            { text: '⚠️ CROWD GATHERING - 81% Confidence', type: 'warning' },
-            { text: '✅ PERIMETER SECURE', type: 'info' }
-        ];
-        
-        // Trigger mock alerts with spacing
-        mockAlerts.forEach((alert, index) => {
-            setTimeout(() => {
-                addThrottledLog(alert.text, alert.type);
-            }, (index + 1) * 3000);
-        });
+        if (!aiSocket) return;
+        console.log(`🚀 Triggering AI Scan on Port 5000: ${videoFilename}`);
+        aiSocket.emit('start_scan', { video_filename: videoFilename });
+        addThrottledLog(`SYSTEM: INITIALIZING DUAL-MODEL SCAN...`, 'info');
     };
 
     const handleSelectVideo = (vid) => {
@@ -328,21 +258,18 @@ export default function FootageUploadView() {
                         {selectedVideo ? (
                             <div className="flex-1 flex flex-col gap-6">
                                 <div className="relative aspect-video bg-black rounded-lg border border-gray-800 overflow-hidden group">
-                                    <video 
-                                        ref={videoRef}
-                                        src={selectedVideo.url || `/${selectedVideo.name}`} 
-                                        onPlay={detectFrame}
-                                        autoPlay
-                                        loop
-                                        muted
-                                        playsInline
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <canvas 
-                                        ref={canvasRef}
-                                        className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                                    />
-
+                                    {aiFrame ? (
+                                        <img 
+                                            src={aiFrame} 
+                                            className="w-full h-full object-contain" 
+                                            alt="AI Vision Stream"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-900/40">
+                                            <FileVideo size={48} className="text-gray-700 animate-pulse" />
+                                        </div>
+                                    )}
+                                    
                                     {/* AI HUD Overlay */}
                                     <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded border border-red-500/50 backdrop-blur-sm">
                                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
