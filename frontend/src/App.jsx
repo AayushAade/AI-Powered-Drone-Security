@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import './index.css';
 import { io } from 'socket.io-client';
-import { LogOut } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import VideoUpload from './components/VideoUpload';
@@ -45,6 +45,54 @@ export default function App() {
     const [mainView, setMainView] = useState('map'); // 'map' or 'video'
     const [fleet, setFleet] = useState([]);
     const [activeTab, setActiveTab] = useState('dashboard');
+
+    // --- Dynamic Layout States ---
+    const [isLeftOpen, setIsLeftOpen] = useState(true);
+    const [isRightOpen, setIsRightOpen] = useState(true);
+    const [bottomHeight, setBottomHeight] = useState(200);
+
+    const isDragging = useRef(false);
+    const layoutTimeoutRef = useRef(null);
+
+    // Map Resize Trigger Effect
+    useEffect(() => {
+        if (layoutTimeoutRef.current) clearTimeout(layoutTimeoutRef.current);
+        layoutTimeoutRef.current = setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+        }, 350);
+        return () => clearTimeout(layoutTimeoutRef.current);
+    }, [isLeftOpen, isRightOpen, bottomHeight]);
+
+    // Bottom Panel Drag Resizing Logic
+    const handlePointerDown = (e) => {
+        isDragging.current = true;
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none'; 
+    };
+
+    useEffect(() => {
+        const handlePointerMove = (e) => {
+            if (!isDragging.current) return;
+            let newHeight = window.innerHeight - e.clientY;
+            if (newHeight < 48) newHeight = 48; // Minimized height (title bar)
+            if (newHeight > window.innerHeight - 200) newHeight = window.innerHeight - 200; 
+            setBottomHeight(newHeight);
+        };
+        const handlePointerUp = () => {
+            if (isDragging.current) {
+                isDragging.current = false;
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = '';
+            }
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    }, []);
 
     const logRef = useRef({ addLog: (t, ti, d) => addLog(setLogs, t, ti, d) });
     const peerConnection = useRef(null);
@@ -171,6 +219,24 @@ export default function App() {
                         </aside>
 
                         <main className="map-viewport" style={{ position: 'relative' }}>
+                            {/* Panel Toggle Buttons */}
+                            <button 
+                                className="panel-toggle-btn"
+                                style={{ left: 0, top: '50%', transform: 'translate(0, -50%)', zIndex: 2000, borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                                onClick={() => setIsLeftOpen(!isLeftOpen)}
+                                title={isLeftOpen ? "Collapse CCTV Panel" : "Expand CCTV Panel"}
+                            >
+                                {isLeftOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                            </button>
+                            <button 
+                                className="panel-toggle-btn"
+                                style={{ right: 0, top: '50%', transform: 'translate(0, -50%)', zIndex: 2000, borderRight: 'none', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                                onClick={() => setIsRightOpen(!isRightOpen)}
+                                title={isRightOpen ? "Collapse Dispatch Panel" : "Expand Dispatch Panel"}
+                            >
+                                {isRightOpen ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                            </button>
+
                             {/* MAP VIEW LAYER */}
                             <div
                                 style={mainView === 'map'
@@ -192,7 +258,7 @@ export default function App() {
                             <div
                                 className={mainView === 'video' ? "" : "glass-card"}
                                 style={mainView === 'video'
-                                    ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, background: '#000', display: 'flex', flexDirection: 'column' }
+                                    ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, background: 'var(--bg-video)', display: 'flex', flexDirection: 'column' }
                                     : { position: 'absolute', top: '24px', left: '24px', width: '320px', zIndex: 1000, padding: '4px', borderColor: 'var(--accent-red)', cursor: 'pointer', transition: 'all 0.3s ease' }}
                                 onClick={() => { if (mainView === 'map') setMainView('video'); }}
                             >
@@ -218,13 +284,13 @@ export default function App() {
                                         </div>
 
                                         <div style={{ position: 'absolute', top: 24, right: 24 }}>
-                                            <div style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '8px 24px', fontSize: '20px', fontWeight: '800', borderRadius: '4px' }}>
+                                            <div style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border)', color: 'white', padding: '8px 24px', fontSize: '20px', fontWeight: '800', borderRadius: '4px' }}>
                                                 CROWD SIZE: ~52
                                             </div>
                                         </div>
 
                                         {/* Telemetry OSD (On-Screen Display) */}
-                                        <div style={{ position: 'absolute', bottom: 24, right: 24, padding: '12px', background: 'rgba(0,0,0,0.6)', border: '1px solid var(--border)', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end', color: 'white', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '14px' }}>
+                                        <div style={{ position: 'absolute', bottom: 24, right: 24, padding: '12px', background: 'var(--bg-overlay)', border: '1px solid var(--border)', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end', color: 'white', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '14px' }}>
                                             <div>ALT: 45m <span style={{ color: 'var(--text-muted)' }}>+</span></div>
                                             <div>SPD: 0 km/h (Hover)</div>
                                             <div>BAT: 78%</div>
@@ -233,7 +299,7 @@ export default function App() {
                                 ) : (
                                     // PIP VIDEO MODE
                                     <>
-                                        <div style={{ background: '#000', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
+                                        <div style={{ background: 'var(--bg-video)', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
                                             {frameData ? (
                                                 <img src={frameData} alt="Drone View" style={{ width: '100%', display: 'block' }} />
                                             ) : (
@@ -257,11 +323,14 @@ export default function App() {
                             <div className="scan-effect" style={{ pointerEvents: 'none' }} />
                         </main>
 
-                        <aside style={{ gridArea: 'right', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border)', overflowY: 'auto' }}>
+                        <aside className="right-panel">
                             <DroneStatus telemetry={droneTelemetry} mode={mainView === 'video' ? 'analytics' : 'default'} />
                         </aside>
 
-                        <section className="bottom-panel">
+                        <section className="bottom-panel" style={{ position: 'relative' }}>
+                            <div className="drag-handle" onPointerDown={handlePointerDown}>
+                                <div className="drag-handle-bar" />
+                            </div>
                             <div className="panel-title">ACTIVE INCIDENTS • SECTOR A1 MONITORING</div>
                             <AlertPanel alerts={alerts} />
                         </section>
@@ -275,7 +344,7 @@ export default function App() {
             case 'logout':
                 return (
                     <div style={{ 
-                        gridArea: '1 / 2 / -1 / -1', 
+                        gridArea: '2 / 2 / -1 / -1', 
                         background: 'var(--bg-deep)', 
                         display: 'flex', 
                         flexDirection: 'column', 
@@ -338,12 +407,15 @@ export default function App() {
                     </div>
                 );
             default:
-                return <div style={{ gridArea: '1 / 2 / -1 / -1' }} className="glass-card"><h2 style={{ color: 'white', textAlign: 'center', marginTop: '20%' }}>VIEW NOT IMPLEMENTED: {activeTab.toUpperCase()}</h2></div>;
+                return <div style={{ gridArea: '2 / 2 / -1 / -1' }} className="glass-card"><h2 style={{ color: 'white', textAlign: 'center', marginTop: '20%' }}>VIEW NOT IMPLEMENTED: {activeTab.toUpperCase()}</h2></div>;
         }
     };
 
     return (
-        <div className="app-container">
+        <div className="app-container" style={{
+            gridTemplateColumns: `68px ${isLeftOpen ? '320px' : '0px'} 1fr ${isRightOpen ? '340px' : '0px'}`,
+            gridTemplateRows: `48px 1fr ${bottomHeight}px`
+        }}>
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
             <TopBar wsConnected={wsConnected} mobileConnected={mobileConnected} />
             {renderMainContent()}

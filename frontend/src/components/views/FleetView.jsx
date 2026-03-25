@@ -18,7 +18,7 @@ const FleetView = ({ drones: liveDrones }) => {
     ];
     return (
         <div style={{
-            gridArea: '1 / 2 / -1 / -1',
+            gridArea: '2 / 2 / -1 / -1',
             background: 'var(--bg-deep)',
             display: 'flex',
             flexDirection: 'column',
@@ -27,6 +27,41 @@ const FleetView = ({ drones: liveDrones }) => {
             color: 'var(--text-bright)',
             overflowY: 'auto'
         }}>
+            <style>{`
+                .btn-diagnostics {
+                    flex: 1;
+                    padding: 8px;
+                    background: var(--btn-subtle-bg);
+                    border: 1px solid var(--border);
+                    color: var(--text-bright);
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .btn-diagnostics:hover {
+                    background: var(--btn-subtle-hover);
+                    border-color: var(--border-active);
+                }
+                .btn-remote {
+                    flex: 1;
+                    padding: 8px;
+                    background: var(--accent-cyan);
+                    border: 1px solid var(--accent-cyan);
+                    color: #020617; /* Very dark blue/black for max contrast */
+                    font-weight: 800;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .btn-remote:hover {
+                    filter: brightness(1.1);
+                    box-shadow: var(--shadow-glow-cyan);
+                }
+            `}</style>
+
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px', gap: '16px' }}>
                 <Network size={40} color="var(--accent-cyan)" />
                 <div>
@@ -64,8 +99,8 @@ const FleetView = ({ drones: liveDrones }) => {
                                 borderRadius: '4px',
                                 fontSize: '10px',
                                 fontWeight: 'bold',
-                                background: (drone.status === 'ACTIVE' || drone.status === 'ON_SCENE') ? 'rgba(0, 245, 255, 0.1)' : 
-                                            drone.status === 'EMERGENCY' ? 'rgba(255, 77, 77, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                background: (drone.status === 'ACTIVE' || drone.status === 'ON_SCENE') ? 'var(--accent-cyan-glow)' : 
+                                            drone.status === 'EMERGENCY' ? 'var(--accent-red-glow)' : 'var(--btn-subtle-bg)',
                                 color: (drone.status === 'ACTIVE' || drone.status === 'ON_SCENE') ? 'var(--accent-cyan)' : 
                                        drone.status === 'EMERGENCY' ? 'var(--accent-red)' : 'var(--text-dim)',
                                 border: '1px solid currentColor'
@@ -94,27 +129,8 @@ const FleetView = ({ drones: liveDrones }) => {
                         </div>
 
                         <div style={{ marginTop: '8px', display: 'flex', gap: '12px' }}>
-                            <button style={{ 
-                                flex: 1, 
-                                padding: '8px', 
-                                background: 'rgba(255,255,255,0.05)', 
-                                border: '1px solid var(--border)',
-                                color: 'white',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                cursor: 'pointer'
-                            }}>DIAGNOSTICS</button>
-                            <button style={{ 
-                                flex: 1, 
-                                padding: '8px', 
-                                background: 'var(--accent-cyan)', 
-                                border: 'none',
-                                color: 'black',
-                                fontWeight: 'bold',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                cursor: 'pointer'
-                            }}>REMOTE LINK</button>
+                            <button className="btn-diagnostics">DIAGNOSTICS</button>
+                            <button className="btn-remote">REMOTE LINK</button>
                         </div>
                     </div>
                 ))}

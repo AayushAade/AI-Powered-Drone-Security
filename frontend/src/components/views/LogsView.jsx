@@ -13,7 +13,7 @@ const incidentData = [
 const LogsView = () => {
     return (
         <div style={{
-            gridArea: '1 / 2 / -1 / -1', 
+            gridArea: '2 / 2 / -1 / -1', 
             background: 'var(--bg-deep)',
             display: 'flex',
             flexDirection: 'column',

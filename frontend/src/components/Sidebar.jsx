@@ -12,42 +12,61 @@ import {
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
     const mainNavItems = [
-        { icon: <LayoutDashboard size={20} />, id: 'dashboard' },
-        { icon: <Upload size={20} />, id: 'upload', title: 'Analyze Footage' },
-        { icon: <ClipboardList size={20} />, id: 'logs' },
-        { icon: <Target size={20} />, id: 'analytics' },
-        { icon: <Network size={20} />, id: 'fleet' },
+        { icon: <LayoutDashboard size={20} />, id: 'dashboard', label: 'Dashboard' },
+        { icon: <Upload size={20} />, id: 'upload', label: 'Upload' },
+        { icon: <ClipboardList size={20} />, id: 'logs', label: 'Logs' },
+        { icon: <Target size={20} />, id: 'analytics', label: 'Analytics' },
+        { icon: <Network size={20} />, id: 'fleet', label: 'Fleet' },
     ];
 
     const utilityNavItems = [
-        { icon: <HelpCircle size={20} />, id: 'help' },
-        { icon: <LogOut size={20} />, id: 'logout' },
+        { icon: <HelpCircle size={20} />, id: 'help', label: 'Help' },
+        { icon: <LogOut size={20} />, id: 'logout', label: 'Logout' },
     ];
 
     return (
         <aside className="sidebar">
-            <div className="sidebar-logo" style={{ marginBottom: '40px', color: 'var(--accent-cyan)', display: 'flex', justifyContent: 'center' }}>
-                <Hexagon size={28} fill="currentColor" fillOpacity={0.2} style={{ filter: 'drop-shadow(0 0 8px var(--accent-cyan))' }} />
+            <div style={{ 
+                marginBottom: '32px', 
+                display: 'flex', 
+                justifyContent: 'center',
+                position: 'relative'
+            }}>
+                <div style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(223, 255, 0, 0.08)',
+                    border: '1px solid rgba(223, 255, 0, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--accent-lime)',
+                }}>
+                    <Hexagon size={22} fill="currentColor" fillOpacity={0.15} style={{ filter: 'drop-shadow(0 0 8px rgba(223, 255, 0, 0.4))' }} />
+                </div>
             </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', alignItems: 'center' }}>
                 {mainNavItems.map(item => (
                     <div 
                         key={item.id} 
                         className={`nav-icon ${activeTab === item.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(item.id)}
+                        title={item.label}
                     >
                         {item.icon}
                     </div>
                 ))}
             </div>
 
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', alignItems: 'center' }}>
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', alignItems: 'center', paddingBottom: '12px' }}>
                 {utilityNavItems.map(item => (
                     <div 
                         key={item.id} 
                         className={`nav-icon ${activeTab === item.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(item.id)}
+                        title={item.label}
                     >
                         {item.icon}
                     </div>

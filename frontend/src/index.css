@@ -1,223 +1,503 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Montserrat:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-:root {
-  /* UI Colors */
-  --bg-deep: #0f1115;
-  --bg-panel: #161a1f;
-  --bg-glass: rgba(22, 26, 31, 0.75);
-  --border: rgba(255, 255, 255, 0.08);
+/* ════════════════════════════════════════════
+   DARK THEME (default)
+   ════════════════════════════════════════════ */
+:root,
+[data-theme='dark'] {
+  /* ─── Background System ─── */
+  --bg-deep: #0a0e1a;
+  --bg-body: linear-gradient(135deg, #0a0e1a 0%, #111827 40%, #0f172a 100%);
+  --bg-panel: rgba(15, 23, 42, 0.65);
+  --bg-glass: rgba(15, 23, 42, 0.45);
+  --bg-glass-strong: rgba(15, 23, 42, 0.75);
+  --bg-card-hover: rgba(0, 245, 255, 0.04);
+  --bg-sidebar: rgba(10, 14, 26, 0.85);
+  --bg-dropdown: #1e293b;
+  --bg-cctv: rgba(0, 0, 0, 0.4);
+  --bg-cctv-fallback: rgba(10, 14, 26, 0.9);
+  --bg-cctv-label: rgba(10, 14, 26, 0.75);
+  --bg-fleet-row: rgba(255,255,255,0.02);
+  --bg-overlay: rgba(0,0,0,0.7);
+  --bg-video: #000;
+
+  /* ─── Borders ─── */
+  --border: rgba(255, 255, 255, 0.07);
   --border-active: rgba(0, 245, 255, 0.4);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-cctv-label: rgba(255,255,255,0.06);
   
-  /* Accents */
-  --accent-cyan: #00f5ff;
-  --accent-cyan-glow: rgba(0, 245, 255, 0.3);
+  /* ─── Accent Colors ─── */
+  --accent-cyan: #00F5FF;
+  --accent-cyan-glow: rgba(0, 245, 255, 0.25);
+  --accent-lime: #DFFF00;
+  --accent-lime-glow: rgba(223, 255, 0, 0.25);
   --accent-red: #ff4d4d;
   --accent-red-glow: rgba(255, 77, 77, 0.3);
   --accent-gold: #ffd700;
   --accent-orange: #ff6600;
   --accent-orange-glow: rgba(255, 102, 0, 0.3);
+  --accent-green: #22c55e;
   
-  /* Text */
-  --text-bright: #ffffff;
+  /* ─── Text ─── */
+  --text-bright: #f1f5f9;
   --text-dim: #94a3b8;
   --text-muted: #64748b;
   
-  /* Shadows & Glass */
-  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
-  --glass-blur: blur(12px);
+  /* ─── Effects ─── */
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-glow-cyan: 0 0 20px rgba(0, 245, 255, 0.15);
+  --shadow-glow-lime: 0 0 20px rgba(223, 255, 0, 0.1);
+  --glass-blur: blur(16px);
+  --glass-blur-strong: blur(24px);
+  
+  /* ─── Radius ─── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* ─── Component-specific ─── */
+  --btn-subtle-bg: rgba(255,255,255,0.04);
+  --btn-subtle-hover: rgba(255,255,255,0.08);
+  --btn-subtle-border-hover: rgba(255,255,255,0.15);
+  --checkbox-inactive: rgba(255,255,255,0.15);
+  --circular-track: rgba(255, 255, 255, 0.06);
+  --map-bg: #0a0c10;
+  --mesh-cyan: rgba(0, 245, 255, 0.03);
+  --mesh-lime: rgba(223, 255, 0, 0.02);
+  --scan-color: rgba(0, 245, 255, 0.03);
+  --camera-fallback-color: rgba(255,255,255,0.08);
+  
+  /* ─── Transition override ─── */
+  color-scheme: dark;
 }
 
+/* ════════════════════════════════════════════
+   LIGHT THEME
+   ════════════════════════════════════════════ */
+[data-theme='light'] {
+  /* ─── Background System ─── */
+  --bg-deep: #f8fafc;
+  --bg-body: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 40%, #e2e8f0 100%);
+  --bg-panel: rgba(255, 255, 255, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.6);
+  --bg-glass-strong: rgba(255, 255, 255, 0.9);
+  --bg-card-hover: rgba(0, 130, 180, 0.04);
+  --bg-sidebar: rgba(248, 250, 252, 0.95);
+  --bg-dropdown: #ffffff;
+  --bg-cctv: rgba(241, 245, 249, 0.6);
+  --bg-cctv-fallback: rgba(241, 245, 249, 0.95);
+  --bg-cctv-label: rgba(255, 255, 255, 0.85);
+  --bg-fleet-row: rgba(0,0,0,0.02);
+  --bg-overlay: rgba(255,255,255,0.85);
+  --bg-video: #1e293b;
+
+  /* ─── Borders ─── */
+  --border: rgba(0, 0, 0, 0.08);
+  --border-active: rgba(0, 130, 180, 0.4);
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-cctv-label: rgba(0,0,0,0.06);
+  
+  /* ─── Accent Colors (darkened for contrast on white) ─── */
+  --accent-cyan: #0891b2;
+  --accent-cyan-glow: rgba(8, 145, 178, 0.2);
+  --accent-lime: #65a30d;
+  --accent-lime-glow: rgba(101, 163, 13, 0.2);
+  --accent-red: #dc2626;
+  --accent-red-glow: rgba(220, 38, 38, 0.15);
+  --accent-gold: #ca8a04;
+  --accent-orange: #ea580c;
+  --accent-orange-glow: rgba(234, 88, 12, 0.15);
+  --accent-green: #16a34a;
+  
+  /* ─── Text ─── */
+  --text-bright: #0f172a;
+  --text-dim: #475569;
+  --text-muted: #94a3b8;
+  
+  /* ─── Effects ─── */
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --shadow-glow-cyan: 0 0 16px rgba(8, 145, 178, 0.1);
+  --shadow-glow-lime: 0 0 16px rgba(101, 163, 13, 0.08);
+  --glass-blur: blur(20px);
+  --glass-blur-strong: blur(28px);
+
+  /* ─── Component-specific ─── */
+  --btn-subtle-bg: rgba(0,0,0,0.03);
+  --btn-subtle-hover: rgba(0,0,0,0.06);
+  --btn-subtle-border-hover: rgba(0,0,0,0.12);
+  --checkbox-inactive: rgba(0,0,0,0.15);
+  --circular-track: rgba(0, 0, 0, 0.08);
+  --map-bg: #e2e8f0;
+  --mesh-cyan: rgba(8, 145, 178, 0.03);
+  --mesh-lime: rgba(101, 163, 13, 0.02);
+  --scan-color: rgba(8, 145, 178, 0.03);
+  --camera-fallback-color: rgba(0,0,0,0.08);
+
+  color-scheme: light;
+}
+
+/* ════════════════════════════════════════════
+   BASE STYLES
+   ════════════════════════════════════════════ */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: var(--bg-deep);
+  background: var(--bg-body);
   color: var(--text-bright);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.4s ease, color 0.3s ease;
 }
 
-/* ─── Layout Grid (Urban Safety Spec) ─── */
+/* ─── Layout Grid ─── */
 .app-container {
   display: grid;
   grid-template-areas: 
     "sidebar header header header"
     "sidebar left center right"
     "sidebar bottom bottom bottom";
-  grid-template-columns: 64px 320px 1fr 340px;
-  grid-template-rows: 64px 1fr 200px;
+  /* Columns and rows will be set dynamically via inline style in App.jsx */
+  grid-template-columns: 68px 320px 1fr 340px;
+  grid-template-rows: 48px 1fr 200px;
   height: 100vh;
   width: 100vw;
-  background: var(--bg-deep);
+  background: transparent;
+  position: relative;
+  transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sidebar Column */
+/* Subtle mesh overlay for depth */
+.app-container::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    radial-gradient(ellipse at 20% 50%, var(--mesh-cyan) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, var(--mesh-lime) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Sidebar ─── */
 .sidebar {
   grid-area: sidebar;
-  background: #0a0c10;
+  background: var(--bg-sidebar);
+  backdrop-filter: var(--glass-blur-strong);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 20px 0;
-  gap: 24px;
+  gap: 8px;
   z-index: 100;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
-/* Header Row */
+/* ─── Header ─── */
 .main-header {
   grid-area: header;
   background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  z-index: 50;
+  position: relative;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
-/* Left Panel (CCTV) */
+/* ─── Left Panel (CCTV) ─── */
 .left-panel {
   grid-area: left;
   background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
   border-right: 1px solid var(--border);
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
-/* Center Column (Map + Overlays) */
+/* ─── Center Column (Map) ─── */
 .map-viewport {
   grid-area: center;
   position: relative;
-  background: #000;
+  background: var(--map-bg);
   overflow: hidden;
+  transition: background 0.3s ease;
 }
 
-/* Bottom Panel (Alerts) */
+/* ─── Bottom Panel ─── */
 .bottom-panel {
   grid-area: bottom;
   background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--border);
   overflow: hidden;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* ─── Right Panel ─── */
+.right-panel {
+  grid-area: right;
+  background: var(--bg-panel);
+  backdrop-filter: var(--glass-blur);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* ─── Dynamic Layout Controls ─── */
+.panel-toggle-btn {
+  position: absolute;
+  width: 24px;
+  height: 48px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  backdrop-filter: var(--glass-blur);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--text-bright);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.2s ease;
+}
+.panel-toggle-btn:hover {
+  background: var(--btn-subtle-hover);
+}
+
+.drag-handle {
+  width: 100%;
+  height: 8px;
+  position: absolute;
+  top: -4px;
+  left: 0;
+  cursor: ns-resize;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.drag-handle-bar {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  transition: background 0.2s ease;
+}
+.drag-handle:hover .drag-handle-bar {
+  background: var(--border-active);
 }
 
 /* ─── Shared Components ─── */
 
 .panel-title {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  font-weight: 800;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--text-muted);
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
+  transition: color 0.3s ease, border-color 0.3s ease;
 }
 
 .glass-card {
   background: var(--bg-glass);
   backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Status Badges */
+.glass-card:hover {
+  border-color: var(--border-active);
+}
+
+/* ─── Status Badges ─── */
 .status-tag {
   font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 2px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
   letter-spacing: 0.5px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  transition: all 0.3s ease;
 }
 
-.tag-cyan { background: rgba(0, 245, 255, 0.1); color: var(--accent-cyan); border: 1px solid var(--accent-cyan-glow); }
-.tag-red { background: rgba(255, 77, 77, 0.1); color: var(--accent-red); border: 1px solid var(--accent-red-glow); }
+.tag-cyan { 
+  background: rgba(0, 245, 255, 0.08); 
+  color: var(--accent-cyan); 
+  border: 1px solid rgba(0, 245, 255, 0.2); 
+}
 
-/* Icons & Buttons */
+.tag-red { 
+  background: rgba(255, 77, 77, 0.08); 
+  color: var(--accent-red); 
+  border: 1px solid rgba(255, 77, 77, 0.2); 
+}
+
+.tag-lime {
+  background: rgba(223, 255, 0, 0.08);
+  color: var(--accent-lime);
+  border: 1px solid rgba(223, 255, 0, 0.2);
+}
+
+/* Light theme badge overrides */
+[data-theme='light'] .tag-cyan { 
+  background: rgba(8, 145, 178, 0.08); 
+  border-color: rgba(8, 145, 178, 0.2); 
+}
+[data-theme='light'] .tag-red { 
+  background: rgba(220, 38, 38, 0.06); 
+  border-color: rgba(220, 38, 38, 0.15); 
+}
+[data-theme='light'] .tag-lime {
+  background: rgba(101, 163, 13, 0.08);
+  border-color: rgba(101, 163, 13, 0.2);
+}
+
+/* ─── Status Dot ─── */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ─── Nav Icons ─── */
 .nav-icon {
-  width: 40px; height: 40px;
+  width: 42px; height: 42px;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-dim);
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: var(--radius-sm);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 
-.nav-icon:hover, .nav-icon.active {
-  background: rgba(0, 245, 255, 0.1);
+.nav-icon:hover {
+  background: rgba(0, 245, 255, 0.08);
   color: var(--accent-cyan);
 }
 
-/* Animations */
+.nav-icon.active {
+  background: rgba(223, 255, 0, 0.1);
+  color: var(--accent-lime);
+  box-shadow: var(--shadow-glow-lime);
+}
+
+[data-theme='light'] .nav-icon:hover {
+  background: rgba(8, 145, 178, 0.08);
+}
+
+[data-theme='light'] .nav-icon.active {
+  background: rgba(101, 163, 13, 0.1);
+}
+
+.nav-icon.active::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--accent-lime);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px var(--accent-lime-glow);
+}
+
+/* ─── CCTV Card ─── */
+.cctv-card {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-cctv);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cctv-card:hover {
+  transform: scale(1.02);
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+/* ─── Theme Toggle ─── */
+.theme-toggle {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--btn-subtle-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--btn-subtle-hover);
+  border-color: var(--btn-subtle-border-hover);
+  color: var(--accent-cyan);
+  transform: rotate(15deg);
+}
+
+/* ─── Animations ─── */
+@keyframes live-pulse {
+  0%, 100% { 
+    opacity: 1; 
+    box-shadow: 0 0 4px rgba(255, 77, 77, 0.4); 
+  }
+  50% { 
+    opacity: 0.7; 
+    box-shadow: 0 0 12px rgba(255, 77, 77, 0.8), 0 0 24px rgba(255, 77, 77, 0.3); 
+  }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.5;
+    transform: scale(1.8);
+  }
+}
+
 @keyframes scanline {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
-}
-
-.scan-effect {
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 100%;
-  background: linear-gradient(transparent, rgba(0, 245, 255, 0.05), transparent);
-  pointer-events: none;
-  animation: scanline 4s linear infinite;
-}
-
-/* Leaflet/Mapbox Overrides */
-.leaflet-container { background: #0a0c10 !important; }
-.leaflet-bar a { background: #161a1f !important; color: white !important; border-bottom: 1px solid var(--border) !important;}
-.leaflet-control-attribution { background: rgba(0,0,0,0.5) !important; color: #444 !important;}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* Typography */
-h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
-
-/* --- FINAL UI REFINEMENTS --- */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-deep);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-cyan);
-}
-
-.leaflet-tooltip {
-  background: var(--bg-deep) !important;
-  color: white !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-  font-family: inherit !important;
-  font-weight: bold !important;
-  font-size: 10px !important;
-}
-
-.drone-tooltip {
-  border-left: 2px solid var(--accent-cyan) !important;
-}
-
-.map-tooltip {
-  background: rgba(0,0,0,0.8) !important;
-  color: #fff !important;
-  border: 1px solid var(--accent-blue) !important;
-  font-size: 9px !important;
-  padding: 4px 8px !important;
 }
 
 @keyframes pulse {
@@ -231,46 +511,170 @@ h1, h2, h3 { font-family: 'Montserrat', sans-serif; font-weight: 800; letter-spa
   to { transform: rotate(360deg); }
 }
 
-.spin {
-  animation: spin 2s linear infinite;
-}
-
-/* Tactical Deep Blue Map Filter */
-.tactical-map-filter .leaflet-tile-pane {
-  filter: brightness(0.6) saturate(0.6) contrast(1.3) sepia(0.3) hue-rotate(180deg);
-  transition: filter 0.3s ease;
-}
-
-/* AI Scanning Animations */
-@keyframes scan-move {
-  0% { top: 0; }
-  100% { top: 100%; }
-}
-
-.animate-scan {
-  animation: scan-move 3s linear infinite;
-}
-
 @keyframes fade-in-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes progress-fill {
+  from { stroke-dashoffset: 251; }
+}
+
+.scan-effect {
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 100%;
+  background: linear-gradient(transparent, var(--scan-color), transparent);
+  pointer-events: none;
+  animation: scanline 5s linear infinite;
+}
+
+.live-badge {
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.dot-pulse {
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+.spin {
+  animation: spin 2s linear infinite;
 }
 
 .animate-fade-in {
   animation: fade-in-up 0.5s ease-out forwards;
 }
 
-/* Custom Scrollbar Utility */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+/* ─── Circular Progress ─── */
+.circular-progress {
+  transform: rotate(-90deg);
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0,0,0,0.2);
+
+.circular-progress-track {
+  fill: none;
+  stroke: var(--circular-track);
+  stroke-width: 4;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 245, 255, 0.2);
-  border-radius: 2px;
+
+.circular-progress-bar {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 245, 255, 0.4);
+
+/* ─── Incident Row ─── */
+.incident-row {
+  transition: background 0.2s ease;
+}
+
+.incident-row:hover {
+  background: var(--bg-card-hover);
+}
+
+/* ─── Leaflet Overrides ─── */
+.leaflet-container { background: var(--map-bg) !important; }
+.leaflet-bar a { 
+  background: var(--bg-glass-strong) !important; 
+  color: var(--text-bright) !important; 
+  border-bottom: 1px solid var(--border) !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+.leaflet-control-attribution { background: var(--bg-glass-strong) !important; color: var(--text-muted) !important;}
+
+.leaflet-tooltip {
+  background: var(--bg-glass-strong) !important;
+  color: var(--text-bright) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  border-radius: 6px !important;
+  backdrop-filter: var(--glass-blur) !important;
+}
+
+.drone-tooltip {
+  border-left: 2px solid var(--accent-cyan) !important;
+}
+
+.tactical-map-filter .leaflet-tile-pane {
+  filter: brightness(0.55) saturate(0.5) contrast(1.4) sepia(0.2) hue-rotate(190deg);
+  transition: filter 0.3s ease;
+}
+
+/* Light mode: no tactical filter */
+[data-theme='light'] .tactical-map-filter .leaflet-tile-pane {
+  filter: brightness(1) saturate(1.1) contrast(1.05);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { 
+  background: var(--border); 
+  border-radius: 10px; 
+}
+::-webkit-scrollbar-thumb:hover { 
+  background: var(--accent-cyan); 
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+  background: var(--border); 
+  border-radius: 2px; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { 
+  background: var(--accent-cyan); 
+}
+
+/* ─── Typography ─── */
+h1, h2, h3 { 
+  font-family: 'Plus Jakarta Sans', sans-serif; 
+  font-weight: 800; 
+  letter-spacing: -0.3px; 
+}
+
+/* ─── Map Style Buttons ─── */
+.map-style-btn {
+  padding: 6px 14px;
+  background: var(--bg-glass);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: all 0.25s ease;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.map-style-btn:hover {
+  background: rgba(0, 245, 255, 0.1);
+  border-color: rgba(0, 245, 255, 0.3);
+  color: var(--accent-cyan);
+}
+
+.map-style-btn.active {
+  background: var(--accent-lime);
+  color: #ffffff;
+  border-color: var(--accent-lime);
+  box-shadow: var(--shadow-glow-lime);
+}
+
+[data-theme='light'] .map-style-btn:hover {
+  background: rgba(8, 145, 178, 0.08);
+  border-color: rgba(8, 145, 178, 0.25);
+}
+
+[data-theme='light'] .map-style-btn.active {
+  color: #ffffff;
 }

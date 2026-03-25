@@ -16,16 +16,16 @@ L.Icon.Default.mergeOptions({
 const droneIcon = L.divIcon({
     html: `<div style="
     width: 40px; height: 40px;
-    background: rgba(0, 245, 255, 0.1);
-    border: 2px solid var(--accent-cyan);
+    background: rgba(0, 245, 255, 0.08);
+    border: 2px solid #00F5FF;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    color: var(--accent-cyan);
-    box-shadow: 0 0 20px var(--accent-cyan-glow);
+    color: #00F5FF;
+    box-shadow: 0 0 24px rgba(0, 245, 255, 0.3), inset 0 0 8px rgba(0, 245, 255, 0.1);
     position: relative;
   ">
-    ${renderToString(<Plane size={24} fill="var(--accent-cyan)" />)}
-    <div style="position: absolute; width: 100%; height: 100%; border: 1px solid var(--accent-cyan); border-radius: 50%; animation: pulse 2s infinite;"></div>
+    ${renderToString(<Plane size={24} fill="#00F5FF" />)}
+    <div style="position: absolute; width: 100%; height: 100%; border: 1px solid #00F5FF; border-radius: 50%; animation: pulse 2s infinite;"></div>
   </div>`,
     className: '',
     iconSize: [40, 40],
@@ -36,12 +36,12 @@ const droneIcon = L.divIcon({
 const incidentIcon = L.divIcon({
     html: `<div style="
     width: 32px; height: 32px;
-    background: rgba(255, 77, 77, 0.2);
-    border: 2px solid var(--accent-red);
+    background: rgba(255, 77, 77, 0.15);
+    border: 2px solid #ff4d4d;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    color: var(--accent-red);
-    box-shadow: 0 0 20px var(--accent-red-glow);
+    color: #ff4d4d;
+    box-shadow: 0 0 20px rgba(255, 77, 77, 0.35);
   ">${renderToString(<AlertTriangle size={18} />)}</div>`,
     className: '',
     iconSize: [32, 32],
@@ -52,36 +52,28 @@ const incidentIcon = L.divIcon({
 const baseIcon = L.divIcon({
     html: `<div style="
     width: 24px; height: 24px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid white;
-    border-radius: 2px;
+    background: rgba(223, 255, 0, 0.08);
+    border: 1px solid rgba(223, 255, 0, 0.4);
+    border-radius: 4px;
     display: flex; align-items: center; justify-content: center;
-    color: white;
+    color: #DFFF00;
   ">${renderToString(<Crosshair size={14} />)}</div>`,
     className: '',
     iconSize: [24, 24],
     iconAnchor: [12, 12],
 });
 
-const MAP_STYLES = {
-    satellite: {
-        name: 'TACTICAL (SATELLITE)',
-        url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-        maxNativeZoom: 20
-    },
-    dark: {
-        name: 'COMMAND (DARK)',
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        maxNativeZoom: 20,
-        subdomains: 'abcd'
-    },
-    swiggy: {
-        name: 'CLEAN (LIGHT)',
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        maxNativeZoom: 20,
-        subdomains: 'abcd'
-    },
+const getMapStyleUrl = (styleId, theme) => {
+    if (styleId === 'satellite') return 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}';
+    return theme === 'light' 
+        ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 };
+
+const MAP_OPTIONS = [
+    { id: 'satellite', name: 'SATELLITE' },
+    { id: 'default', name: 'DEFAULT' }
+];
 
 const NO_FLY_ZONES = [
     { 
@@ -92,7 +84,7 @@ const NO_FLY_ZONES = [
             [18.4601, 73.8580],
             [18.4590, 73.8580]
         ],
-        center: [18.4595965, 73.8573443], // Exact coordinates provided
+        center: [18.4595965, 73.8573443],
         type: 'Hospital' 
     },
     { 
@@ -113,6 +105,7 @@ const CITY_CENTER = [18.4575, 73.8510];
 
 export default function MapView({ dronePos, incidentCoords, droneStatus }) {
     const [style, setStyle] = useState('satellite');
+    const [theme, setTheme] = useState(() => document.documentElement.getAttribute('data-theme') || 'dark');
     const mapRef = useRef(null);
     const mapInstance = useRef(null);
     const tileLayer = useRef(null);
@@ -132,27 +125,22 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
             attributionControl: false,
         });
 
-        const currentStyle = MAP_STYLES[style];
-        tileLayer.current = L.tileLayer(currentStyle.url, {
-            maxZoom: 22,
-            maxNativeZoom: currentStyle.maxNativeZoom || 19,
-            subdomains: currentStyle.subdomains || 'abc'
-        }).addTo(map);
+        // The tileLayer is deliberately omitted here. 
+        // We rely on the second useEffect to inject the tileLayer based on state.
 
         // Render all No-Fly Zones
         NO_FLY_ZONES.forEach((zone) => {
             const polygon = L.polygon(zone.coordinates, {
-                color: 'var(--accent-red)',
-                fillColor: 'var(--accent-red)',
-                fillOpacity: 0.1,
+                color: '#ff4d4d',
+                fillColor: '#ff4d4d',
+                fillOpacity: 0.08,
                 weight: 1,
                 dashArray: '4,6',
             }).addTo(map);
             
-            // Add static label "NO FLY ZONE"
             L.marker(zone.center, {
                 icon: L.divIcon({
-                    html: `<div style="color: var(--accent-red); font-size: 8px; font-weight: 800; white-space: nowrap; opacity: 0.6;">NO FLY ZONE</div>`,
+                    html: `<div style="color: #ff4d4d; font-size: 8px; font-weight: 800; white-space: nowrap; opacity: 0.5; letter-spacing: 1px; font-family: 'Plus Jakarta Sans', sans-serif;">NO FLY ZONE</div>`,
                     className: '',
                     iconSize: [60, 10],
                     iconAnchor: [30, 5]
@@ -171,7 +159,6 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
 
         mapInstance.current = map;
 
-        // Ensure map resizes correctly when toggled between PIP and Main View
         const resizeObserver = new ResizeObserver(() => {
             if (mapInstance.current) {
                 mapInstance.current.invalidateSize();
@@ -186,33 +173,39 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
         };
     }, []);
 
-    // Handle Style Change
+    // Theme Listener
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        return () => observer.disconnect();
+    }, []);
+
+    // Handle Style/Theme Change
     useEffect(() => {
         if (!mapInstance.current) return;
 
-        // Remove old layer if it exists
         if (tileLayer.current) {
             mapInstance.current.removeLayer(tileLayer.current);
         }
 
-        const currentStyle = MAP_STYLES[style];
+        const url = getMapStyleUrl(style, theme);
         
-        // Create new layer with fresh options
-        tileLayer.current = L.tileLayer(currentStyle.url, {
+        tileLayer.current = L.tileLayer(url, {
             maxZoom: 22,
-            maxNativeZoom: currentStyle.maxNativeZoom || 19,
-            subdomains: currentStyle.subdomains || 'abc',
+            maxNativeZoom: style === 'satellite' ? 20 : 19,
+            subdomains: style === 'satellite' ? 'abc' : 'abcd',
             attribution: '© OpenStreetMap contributors © CARTO'
         }).addTo(mapInstance.current);
 
-        // Map filter for satellite mode (tactical)
         if (style === 'satellite') {
             mapRef.current.classList.add('tactical-map-filter');
         } else {
             mapRef.current.classList.remove('tactical-map-filter');
         }
 
-    }, [style]);
+    }, [style, theme]);
 
     // Update drone position
     useEffect(() => {
@@ -232,19 +225,18 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
         incidentMarker.current = L.marker(incPos, { icon: incidentIcon })
             .addTo(mapInstance.current);
 
-        // "Optimal Route" styling
         routeLine.current = L.polyline([BASE_POSITION, incPos], {
-            color: 'var(--accent-cyan)',
-            weight: 3,
-            opacity: 0.8,
-            lineJoin: 'round'
+            color: '#00F5FF',
+            weight: 2.5,
+            opacity: 0.7,
+            lineJoin: 'round',
+            dashArray: '8,8'
         }).addTo(mapInstance.current);
         
-        // Add "OPTIMAL ROUTE" label overlay
         const midPoint = [(BASE_POSITION[0] + incPos[0]) / 2, (BASE_POSITION[1] + incPos[1]) / 2];
         L.marker(midPoint, {
             icon: L.divIcon({
-                html: `<div style="background: var(--accent-cyan); color: #000; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 2px; transform: rotate(-20deg); white-space: nowrap;">OPTIMAL ROUTE</div>`,
+                html: `<div style="background: #00F5FF; color: #0a0e1a; font-size: 8px; font-weight: 800; padding: 3px 8px; border-radius: 9999px; transform: rotate(-20deg); white-space: nowrap; font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: 0.5px; box-shadow: 0 0 12px rgba(0, 245, 255, 0.4);">OPTIMAL ROUTE</div>`,
                 className: '',
                 iconAnchor: [40, 5]
             })
@@ -255,35 +247,25 @@ export default function MapView({ dronePos, incidentCoords, droneStatus }) {
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {/* Map Styles Selector (Glassmorphic) */}
+            {/* Map Style Selector */}
             <div style={{
-                position: 'absolute', top: 20, right: 20, zIndex: 1000,
-                display: 'flex', gap: '8px'
+                position: 'absolute', top: 16, right: 16, zIndex: 1000,
+                display: 'flex', gap: '6px'
             }}>
-                {Object.entries(MAP_STYLES).map(([key, value]) => (
+                {MAP_OPTIONS.map((opt) => (
                     <button
-                        key={key}
-                        onClick={() => setStyle(key)}
-                        style={{
-                            padding: '6px 12px',
-                            background: style === key ? 'var(--accent-cyan)' : 'var(--bg-glass)',
-                            color: style === key ? '#000' : 'white',
-                            border: '1px solid var(--border)',
-                            borderRadius: '4px',
-                            fontSize: '9px',
-                            fontWeight: '800',
-                            cursor: 'pointer',
-                            backdropFilter: 'var(--glass-blur)'
-                        }}
+                        key={opt.id}
+                        className={`map-style-btn ${style === opt.id ? 'active' : ''}`}
+                        onClick={() => setStyle(opt.id)}
                     >
-                        {value.name}
+                        {opt.name}
                     </button>
                 ))}
             </div>
 
             <div 
                 ref={mapRef} 
-                style={{ width: '100%', height: '100%', background: '#000' }} 
+                style={{ width: '100%', height: '100%', background: '#0a0e1a' }} 
             />
         </div>
     );

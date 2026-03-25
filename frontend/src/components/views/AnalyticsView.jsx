@@ -11,7 +11,7 @@ const mockStats = [
 const AnalyticsView = () => {
     return (
         <div style={{
-            gridArea: '1 / 2 / -1 / -1', // Span the rest of the app container except sidebar
+            gridArea: '2 / 2 / -1 / -1', // Span the rest of the app container except sidebar
             background: 'var(--bg-deep)',
             display: 'flex',
             flexDirection: 'column',
