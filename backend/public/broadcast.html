@@ -110,11 +110,11 @@
     };
 
     let socket = null;
-    let pc = null;
     let localStream = null;
     let broadcasting = false;
     let model = null;
     let detectionFrameId = null;
+    let frameInterval = null;
     let lastAlertTime = 0;
 
     const video = document.getElementById('localVideo');
@@ -122,7 +122,6 @@
     const ctx = canvas.getContext('2d');
     const startBtn = document.getElementById('startBtn');
     const socketStatusEl = document.getElementById('socketStatus');
-    const rtcStatusEl = document.getElementById('rtcStatus');
     const aiStatusEl = document.getElementById('aiStatus');
 
     // Load Edge AI model on startup
@@ -130,7 +129,7 @@
       model = loadedModel;
       aiStatusEl.innerText = '🧠 AI: Model Ready';
       startBtn.disabled = false;
-      startBtn.innerText = '▶ START BROADCAST & AI';
+      startBtn.innerText = '▶ START DRONE MISSION';
     }).catch(err => {
       aiStatusEl.innerText = '❌ AI: Failed to load';
       console.error(err);
@@ -139,9 +138,6 @@
     function setSocketStatus(text, cls) {
       socketStatusEl.textContent = text;
       socketStatusEl.className = 'status ' + cls;
-    }
-    function setRtcStatus(text) {
-      rtcStatusEl.textContent = 'WebRTC: ' + text;
     }
 
     async function toggleBroadcast() {
@@ -154,23 +150,20 @@
 
     async function startBroadcast() {
       startBtn.disabled = true;
-      startBtn.textContent = '⏳ STARTING...';
+      startBtn.textContent = '⏳ INITIALIZING...';
 
-      // 1. Get camera stream — this is SILENT, no shutter sound, no flash
+      // 1. Get camera stream
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30, max: 60 },
+            width: { ideal: 640 }, // Lower res for higher socket FPS
+            height: { ideal: 480 },
           },
           audio: false,
         });
         video.srcObject = localStream;
-        console.log('[Camera] ✅ Stream acquired:', localStream.getTracks().length, 'tracks');
         
-        // Wait for video dimensions to be ready before starting AI
         video.onloadedmetadata = () => {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
@@ -179,9 +172,9 @@
 
       } catch (e) {
         console.error('[Camera] ❌ Failed:', e);
-        alert('Could not access camera. Please allow camera permission and try again.');
+        alert('SECURITY ERROR: Mobile browsers require HTTPS to access the camera on a local network. Please check the terminal for HTTPS setup instructions.');
         startBtn.disabled = false;
-        startBtn.textContent = '▶ START BROADCAST & AI';
+        startBtn.textContent = '▶ RETRY MISSION';
         return;
       }
 
@@ -189,89 +182,48 @@
       socket = io(window.location.origin, { transports: ['websocket'] });
 
       socket.on('connect', () => {
-        console.log('[Socket] ✅ Connected:', socket.id);
-        setSocketStatus('🟢 Connected to Command Center', 'connected');
-        // 3. Immediately create offer and broadcast
-        createOffer();
+        setSocketStatus('🟢 Uplink Active (Port 3443)', 'connected');
+        
+        // 3. START BASE64 FRAME EMISSION LOOP (5 FPS)
+        const frameCanvas = document.createElement('canvas');
+        const fCtx = frameCanvas.getContext('2d');
+        
+        frameInterval = setInterval(() => {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            frameCanvas.width = 320; // Downscale further for speed
+            frameCanvas.height = 240;
+            fCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+            const base64 = frameCanvas.toDataURL('image/jpeg', 0.5); // 50% quality
+            
+            socket.emit('video_frame', { 
+              image: base64.split(',')[1], // Just the data
+              drone_id: 'D-Alpha'
+            });
+          }
+        }, 200); // 5 FPS
       });
 
       socket.on('disconnect', () => {
-        console.log('[Socket] ❌ Disconnected');
-        setSocketStatus('🔴 Disconnected', 'disconnected');
+        setSocketStatus('🔴 Uplink Offline', 'disconnected');
       });
 
-      socket.on('webrtc_answer', async (data) => {
-        console.log('[WebRTC] Answer received');
-        try {
-          if (pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-            console.log('[WebRTC] ✅ Remote description set');
+      // 4. Start Location Tracking
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition((pos) => {
+          if (socket && socket.connected) {
+            socket.emit('telemetry_update', {
+              drone_id: 'D-Alpha',
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude
+            });
           }
-        } catch (e) {
-          console.error('[WebRTC] ❌ Error setting answer:', e);
-        }
-      });
-
-      socket.on('webrtc_ice_candidate', async (data) => {
-        try {
-          if (pc && data.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-          }
-        } catch (e) {
-          console.error('[WebRTC] ❌ Error adding ICE:', e);
-        }
-      });
-
-      socket.on('viewer_joined', () => {
-        console.log('[WebRTC] 👁️ New viewer joined, re-sending offer');
-        createOffer();
-      });
+        });
+      }
 
       broadcasting = true;
       startBtn.classList.add('active');
       startBtn.disabled = false;
-      startBtn.innerHTML = '<span class="live-dot"></span> STOP BROADCAST';
-    }
-
-    async function createOffer() {
-      if (pc) { pc.close(); pc = null; }
-
-      pc = new RTCPeerConnection(ICE_SERVERS);
-
-      // Add camera tracks
-      localStream.getTracks().forEach(track => {
-        pc.addTrack(track, localStream);
-      });
-      console.log('[WebRTC] Added', localStream.getTracks().length, 'tracks');
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate && socket && socket.connected) {
-          socket.emit('webrtc_ice_candidate', {
-            candidate: event.candidate,
-            target: 'viewer',
-          });
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-        setRtcStatus(pc.iceConnectionState);
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          setRtcStatus('🎥 LIVE — Streaming to Dashboard');
-          setSocketStatus('🟢 Broadcasting Live Video', 'streaming');
-        }
-      };
-
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('webrtc_offer', { senderId: 'broadcaster', offer });
-        console.log('[WebRTC] ✅ Offer sent');
-        setRtcStatus('Offer sent, waiting for dashboard...');
-      } catch (e) {
-        console.error('[WebRTC] ❌ Error creating offer:', e);
-        setRtcStatus('Error: ' + e.message);
-      }
+      startBtn.innerHTML = '<span class="live-dot"></span> STOP MISSION';
     }
 
     async function startDetection() {
@@ -287,43 +239,28 @@
       const scaleY = drawHeight / video.videoHeight;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.font = '16px Courier New';
+      ctx.font = '14px Courier New';
       ctx.lineWidth = 2;
 
-      let incidentDetected = false;
+      let personDetected = false;
 
       predictions.forEach(prediction => {
-        // Person / object detection rules
         if (prediction.class === 'person' && prediction.score > 0.5) {
-          incidentDetected = true;
+          personDetected = true;
           const [x, y, width, height] = prediction.bbox;
-          
           ctx.strokeStyle = '#FF3B30';
-          ctx.beginPath();
-          ctx.rect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
-          ctx.stroke();
-          
+          ctx.strokeRect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
           ctx.fillStyle = '#FF3B30';
-          ctx.fillText(`PERSON ${Math.round(prediction.score * 100)}%`, x * scaleX, (y * scaleY) - 5);
+          ctx.fillText(`HUMAN ${Math.round(prediction.score * 100)}%`, x * scaleX, (y * scaleY) - 5);
         }
       });
 
       const now = Date.now();
-      if (incidentDetected && (now - lastAlertTime > 5000)) {
-        aiStatusEl.innerText = '🚨 AI: INTRUDER DETECTED!';
+      if (personDetected && (now - lastAlertTime > 5000)) {
+        aiStatusEl.innerText = '🚨 AI: TARGET DETECTED';
         aiStatusEl.style.color = '#f00';
-        
-        if (socket && socket.connected) {
-          socket.emit('drone_alert', {
-            type: 'Person Detected (Edge AI)',
-            timestamp: new Date().toISOString(),
-            coords: [Math.random() * 0.01 + 34.05, Math.random() * 0.01 - 118.25], // Real GPS can be wired here
-            droneId: "PHONE-DRONE-01",
-            severity: "High"
-          });
-        }
         lastAlertTime = now;
-      } else if (!incidentDetected && (now - lastAlertTime > 2000)) {
+      } else if (!personDetected && (now - lastAlertTime > 2000)) {
          aiStatusEl.innerText = '🧠 AI: Scanning...';
          aiStatusEl.style.color = '#ff0';
       }
@@ -333,7 +270,7 @@
 
     function stopBroadcast() {
       if (detectionFrameId) cancelAnimationFrame(detectionFrameId);
-      if (pc) { pc.close(); pc = null; }
+      if (frameInterval) clearInterval(frameInterval);
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
         localStream = null;
@@ -344,12 +281,14 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       broadcasting = false;
       startBtn.classList.remove('active');
-      startBtn.textContent = '▶ START BROADCAST & AI';
+      startBtn.textContent = '▶ START DRONE MISSION';
       setSocketStatus('⚫ Not connected', 'disconnected');
-      setRtcStatus('Idle');
       aiStatusEl.innerText = '🧠 AI: Model Ready';
       aiStatusEl.style.color = '#ff0';
     }
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>

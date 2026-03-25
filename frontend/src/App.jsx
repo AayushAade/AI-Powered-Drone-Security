@@ -140,11 +140,15 @@ export default function App() {
         });
 
         socket.on('video_frame', (data) => {
-            setFrameData(data.image);
+            const raw = data.image;
+            const formatted = raw.startsWith('data:image') ? raw : `data:image/jpeg;base64,${raw}`;
+            setFrameData(formatted);
         });
         
         socket.on('cctv_frame', (data) => {
-            setFrameData(data.image);
+            const raw = data.image;
+            const formatted = raw.startsWith('data:image') ? raw : `data:image/jpeg;base64,${raw}`;
+            setFrameData(formatted);
         });
 
         socket.on('ai_report', (report) => {

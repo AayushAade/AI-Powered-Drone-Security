@@ -45,3 +45,7 @@ yolo11n.pt
 *.weights
 *.h5
 *.onnx
+
+# Local Hackathon Assets
+backend/uploads/
+backend/*.pem

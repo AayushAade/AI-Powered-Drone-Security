@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-nati
 import { Camera, CameraView } from 'expo-camera';
 import * as Location from 'expo-location';
 import { io, Socket } from 'socket.io-client';
-import { RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
 
 const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_IP
   ? `http://${process.env.EXPO_PUBLIC_SERVER_IP}:3000`
@@ -11,26 +10,17 @@ const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_IP
 
 const DRONE_ID = 'D-Alpha';
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
-};
-
 export default function App() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [latestAiAlert, setLatestAiAlert] = useState<string | null>(null);
   const [liveInsights, setLiveInsights] = useState<string>('Awaiting mission start...');
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const cameraRef = useRef<CameraView | null>(null);
+  const frameIntervalRef = useRef<any>(null);
 
   // ───────────── Permissions ─────────────
   useEffect(() => {
@@ -44,100 +34,51 @@ export default function App() {
 
   // ───────────── Main Drone Session ─────────────
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive) {
+      if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+      if (socketRef.current) socketRef.current.disconnect();
+      return;
+    }
 
     let locationSub: Location.LocationSubscription | null = null;
-    let isCancelled = false;
+    
+    const socket = io(SERVER_URL, { transports: ['websocket'] });
+    socketRef.current = socket;
 
-    const run = async () => {
-      setLiveInsights('Acquiring camera stream...');
-
-      // ── Step 1: Get camera stream FIRST (silent, no shutter) ──
-      let stream: MediaStream | null = null;
-      try {
-        const isFront = false;
-        const devices = (await mediaDevices.enumerateDevices()) as any[];
-        let videoSourceId: string | undefined;
-        for (const d of devices) {
-          if (d.kind === 'videoinput' && d.facing === (isFront ? 'front' : 'environment')) {
-            videoSourceId = d.deviceId;
+    socket.on('connect', () => {
+      setIsConnected(true);
+      setLiveInsights('Uplink active. Streaming vision telemetry...');
+      
+      // START FRAME CAPTURE LOOP
+      frameIntervalRef.current = setInterval(async () => {
+        if (cameraRef.current && socket.connected) {
+          try {
+            const photo = await cameraRef.current.takePictureAsync({
+              base64: true,
+              quality: 0.2, // Low quality for high-frequency streaming
+              shutterSound: false,
+            });
+            
+            if (photo?.base64) {
+              socket.emit('video_frame', { 
+                image: photo.base64,
+                drone_id: DRONE_ID 
+              });
+            }
+          } catch (e) {
+            console.log('Frame capture error:', e);
           }
         }
-        stream = await mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            width: 1280,
-            height: 720,
-            frameRate: 30,
-            facingMode: isFront ? 'user' : 'environment',
-            deviceId: videoSourceId,
-          },
-        });
-        console.log('[WebRTC] ✅ Camera stream acquired:', stream.getTracks().length, 'tracks');
-      } catch (e) {
-        console.error('[WebRTC] ❌ Failed to get camera stream:', e);
-        setLiveInsights('Error: Could not access camera for WebRTC.');
-        return;
-      }
+      }, 500); // 2 FPS for stability in Expo Go
+    });
 
-      if (isCancelled) { stream.getTracks().forEach((t: any) => t.stop()); return; }
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      setLiveInsights('Warning: Connection lost.');
+    });
 
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      setLiveInsights('Camera ready. Connecting to Command Center...');
-
-      // ── Step 2: Connect to backend ──
-      const socket = io(SERVER_URL, { transports: ['websocket'] });
-      socketRef.current = socket;
-
-      socket.on('connect', () => {
-        console.log('[Socket] ✅ Connected:', socket.id);
-        setIsConnected(true);
-        setLiveInsights('Connected. Broadcasting live video feed...');
-        // As soon as we connect, create an offer and send it
-        createAndSendOffer(socket, stream!);
-      });
-
-      socket.on('disconnect', () => {
-        console.log('[Socket] ❌ Disconnected');
-        setIsConnected(false);
-        setLiveInsights('Connection to Command Center lost.');
-      });
-
-      // ── Step 3: WebRTC signaling ──
-      socket.on('webrtc_answer', async (data: any) => {
-        console.log('[WebRTC] Answer received from viewer');
-        try {
-          if (peerConnectionRef.current) {
-            await peerConnectionRef.current.setRemoteDescription(
-              new RTCSessionDescription(data.answer)
-            );
-            console.log('[WebRTC] ✅ Remote description set successfully');
-          }
-        } catch (e) {
-          console.error('[WebRTC] ❌ Error setting answer:', e);
-        }
-      });
-
-      socket.on('webrtc_ice_candidate', async (data: any) => {
-        try {
-          if (peerConnectionRef.current && data.candidate) {
-            await peerConnectionRef.current.addIceCandidate(
-              new RTCIceCandidate(data.candidate)
-            );
-          }
-        } catch (e) {
-          console.error('[WebRTC] ❌ Error adding ICE candidate:', e);
-        }
-      });
-
-      // When a new viewer joins (e.g. dashboard page refreshed), re-send offer
-      socket.on('viewer_joined', () => {
-        console.log('[WebRTC] 👁️ New viewer joined — re-creating offer');
-        createAndSendOffer(socket, stream!);
-      });
-
-      // ── Step 4: Location tracking ──
+    // ── Location Tracking ──
+    (async () => {
       if (hasLocationPermission) {
         locationSub = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, timeInterval: 1000, distanceInterval: 1 },
@@ -153,99 +94,38 @@ export default function App() {
           }
         );
       }
-    };
+    })();
 
-    run();
-
-    // ── Cleanup ──
     return () => {
-      isCancelled = true;
-      setLiveInsights('Drone Idle.');
-      setIsConnected(false);
-      setLocation(null);
-
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t: any) => t.stop());
-        localStreamRef.current = null;
-        setLocalStream(null);
-      }
-      if (locationSub) {
-        locationSub.remove();
-      }
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      if (frameIntervalRef.current) clearInterval(frameIntervalRef.current);
+      if (locationSub) locationSub.remove();
+      socket.disconnect();
     };
   }, [isActive, hasLocationPermission]);
 
-  // ───────────── Create PeerConnection + Offer ─────────────
-  const createAndSendOffer = async (socket: Socket, stream: MediaStream) => {
-    // Close old connection if any
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    peerConnectionRef.current = pc;
-
-    // Add all tracks from the camera stream
-    stream.getTracks().forEach((track: any) => {
-      pc.addTrack(track, stream);
-    });
-    console.log('[WebRTC] Added', stream.getTracks().length, 'tracks to peer connection');
-
-    // Send ICE candidates to the viewer via signaling server
-    (pc as any).onicecandidate = (event: any) => {
-      if (event.candidate && socket.connected) {
-        socket.emit('webrtc_ice_candidate', {
-          candidate: event.candidate,
-          target: 'viewer',
-        });
-      }
-    };
-
-    (pc as any).oniceconnectionstatechange = () => {
-      console.log('[WebRTC] ICE state:', (pc as any).iceConnectionState);
-      if ((pc as any).iceConnectionState === 'connected') {
-        setLiveInsights('🎥 LIVE: Video stream connected to Command Center!');
-      }
-    };
-
-    // Create and send the offer
-    try {
-      const offer = await pc.createOffer({});
-      await pc.setLocalDescription(offer);
-      socket.emit('webrtc_offer', { senderId: 'broadcaster', offer });
-      console.log('[WebRTC] ✅ Offer created and sent to signaling server');
-    } catch (e) {
-      console.error('[WebRTC] ❌ Error creating offer:', e);
-    }
-  };
-
   // ───────────── Render ─────────────
   if (hasCameraPermission === null || hasLocationPermission === null) return <View style={styles.container} />;
-  if (hasCameraPermission === false || hasLocationPermission === false)
-    return <Text style={{ marginTop: 50 }}>No access to camera or location</Text>;
+  
+  if (!hasCameraPermission) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: 'white' }}>No Camera Access</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* WebRTC local camera preview – this is the LIVE video feed, no shutter sounds */}
-      {localStream ? (
-        <RTCView
-          streamURL={localStream.toURL()}
-          style={StyleSheet.absoluteFillObject}
-          objectFit="cover"
-        />
-      ) : (
+      <CameraView
+        style={StyleSheet.absoluteFillObject}
+        facing="back"
+        ref={cameraRef}
+      />
+      
+      {!isActive && (
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
           <Text style={{ color: '#555', fontSize: 14, fontFamily: 'Courier' }}>
-            {isActive ? 'Acquiring camera...' : 'Camera inactive'}
+            Camera inactive
           </Text>
         </View>
       )}
@@ -259,9 +139,9 @@ export default function App() {
           <Text style={styles.connectionText}>
             Server: {isConnected ? 'Connected 📡' : 'Disconnected 🔌'}
           </Text>
-          {isActive && localStream && (
+          {isActive && (
             <Text style={{ color: '#ff4444', fontSize: 12, fontFamily: 'Courier', marginTop: 3 }}>
-              ● BROADCASTING LIVE VIDEO
+              ● STREAMING BASE64 TELEMETRY
             </Text>
           )}
         </View>
@@ -290,11 +170,11 @@ export default function App() {
           </View>
         </View>
 
-        {/* Alerts */}
+        {/* Alerts Center (Handled by Command Center) */}
         <View style={{ alignItems: 'center' }}>
-          {latestAiAlert && (
+          {liveInsights.includes('DETECTION') && (
             <View style={styles.alertBox}>
-              <Text style={styles.alertText}>🚨 THREAT DETECTED: {latestAiAlert}</Text>
+              <Text style={styles.alertText}>🚨 {liveInsights}</Text>
             </View>
           )}
         </View>
