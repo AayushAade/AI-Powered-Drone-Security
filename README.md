@@ -1,6 +1,6 @@
-# 🚁 AI-Powered Drone Security & Emergency Response
+#  AI-Powered Drone Security & Emergency Response
 
-![Command Center Dashboard](https://img.shields.io/badge/Status-Active-brightgreen) ![License](https://img.shields.io/badge/License-MIT-blue) ![Version](https://img.shields.io/badge/Version-1.0.0-orange)
+
 
 A real-time, AI-driven command center built for modern first responders. This system integrates stationary CCTV feeds and autonomous drone video streams, utilizing YOLOv11 Pose Estimation to detect incidents (like a suspect surrendering) and automatically dispatch aerial assets to precise geographical coordinates via an interactive React-Leaflet dashboard.
 
